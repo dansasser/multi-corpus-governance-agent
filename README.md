@@ -1,5 +1,14 @@
 # 📚 Multi-Corpus Governance Agent
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE.md)
+[![License: Commercial](https://img.shields.io/badge/License-Commercial-red.svg)](LICENSE.md)
+[![Governance](https://img.shields.io/badge/Governance-Multi--Agent-green.svg)](governance.md)
+[![Docs](https://img.shields.io/badge/Docs-README-lightgrey.svg)](README.md)
+[![Status](https://img.shields.io/badge/Status-Phase%20Zero-orange.svg)](#)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-yellow.svg)](SECURITY.md)
+[![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+
 A governed AI assistant that connects to multiple corpora (personal, social, published) and routes them through a **five-agent pipeline**: Ideator → Drafter → Critic → Revisor → Summarizer.
 
 Unlike prompt-tuned chatbots, reasoning and validation are handled in the **governance layer**. Heavy lifting (idea generation, drafting, validation) uses API backends, while **Minimum Viable Language Models (MVLMs)** act as firebreaks at the end of the chain to enforce tone, reduce noise, and package results.
