@@ -457,6 +457,55 @@ Logging ensures every step is auditable and traceable.
 
 ---
 
+## Multi-Corpus Blending Rules
+
+### Goal
+
+Ensure responses reflect both **tone** (Personal + Social) and **authority** (Published), without forcing the system to pick just one corpus.
+
+### Default Behavior
+
+* **Ideator**:
+
+  * Queries **all three corpora** by default.
+  * Uses Personal + Social for **voice fingerprinting**.
+  * Uses Published for **coverage anchors**.
+* **Drafter**:
+
+  * Works primarily with what Ideator passes down.
+  * May request additional **Personal or Social** snippets for style anchoring.
+* **Critic**:
+
+  * Always allowed to re-query across corpora.
+  * May trigger **RAG fallback** for Social and Published if coverage is missing or freshness is required.
+* **Revisor**:
+
+  * Inherits snippets already selected; no new corpus queries.
+* **Summarizer**:
+
+  * Never queries corpora directly; only compresses what it is given.
+
+### Corpus Weighting
+
+* **Personal**: Highest priority for conversational tone.
+* **Social**: Supplements tone with cadence and colloquial phrasing.
+* **Published**: Provides factual grounding and authority.
+
+### Blending Logic
+
+1. **Query All** → Ideator always starts broad, requesting top-N from each corpus.
+2. **Assemble Pack** → Context Assembly merges snippets into a unified context pack.
+3. **Filter & Score** → Coverage score, tone score, and diversity check ensure at least two corpora contribute.
+4. **Governance** → Critic verifies attribution, truth, and balance between tone vs authority.
+
+### Special Cases
+
+* If **prompt intent = personal reflection/chat**, lean heavier on **Personal + Social**.
+* If **prompt intent = factual/article/blog**, lean heavier on **Published**, but still inject Social tone markers.
+* If **prompt intent = mixed/unclear**, balance evenly across all corpora.
+
+---
+
 ```
 User Prompt
     │
