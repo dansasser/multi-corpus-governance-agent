@@ -1,426 +1,871 @@
-# Multi-Corpus Governance Agent - Implementation Plan
+# Multi-Corpus Governance Agent - Implementation Plan (Revised)
+
+**Document Version**: 2.0  
+**Last Updated**: 2024-09-01  
+**Status**: DRAFT - PENDING APPROVAL  
+
+---
 
 ## 🎯 Overview
 
-This implementation plan details how to build the Multi-Corpus Governance Agent using **PydanticAI** as the core orchestration framework. The system will implement a five-agent pipeline with strict governance rules, multi-corpus retrieval, and comprehensive security from day one.
+This implementation plan details how to build the Multi-Corpus Governance Agent using **protocol architecture over PydanticAI**. Rather than relying on prompt engineering, we implement **governance as an architectural constraint** that makes rule violations impossible through tool-level enforcement and runtime validation.
 
-## 📋 Phase One: Core Backend Implementation
+### Core Innovation: Governance Protocol Layer
+- **Protocol-First Design**: Security and governance enforced at the architecture level, not prompt level
+- **PydanticAI Integration**: Agent orchestration with governance-wrapped tools and dependency injection
+- **MVLM Firebreaks**: Revisor and Summarizer use local models as primary, API as controlled fallback
+- **Immutable Audit Trail**: Complete attribution and decision tracking through the five-agent pipeline
 
-### 1. Foundation Layer (Week 1-2)
+---
 
-#### 1.1 Project Structure Setup
-```
-src/mcg_agent/
-├── __init__.py
-├── main.py                 # FastAPI entrypoint
-├── config.py              # ✅ Already implemented
-├── agents/
-│   ├── __init__.py
-│   ├── base.py            # Base PydanticAI agent class
-│   ├── ideator.py         # Ideator agent
-│   ├── drafter.py         # Drafter agent
-│   ├── critic.py          # Critic agent
-│   ├── revisor.py         # Revisor agent
-│   └── summarizer.py      # Summarizer agent
-├── governance/
-│   ├── __init__.py
-│   ├── rules.py           # Governance rule engine
-│   ├── scoring.py         # Tone/coverage scoring
-│   ├── validators.py      # Input/output validation
-│   └── metadata.py        # Metadata schema
-├── search/
-│   ├── __init__.py
-│   ├── base.py            # Base corpus connector
-│   ├── personal.py        # Personal corpus connector
-│   ├── social.py          # Social corpus connector
-│   ├── published.py       # Published corpus connector
-│   └── rag.py             # RAG/external search
-├── context/
-│   ├── __init__.py
-│   ├── assembly.py        # Context pack builder
-│   ├── fingerprint.py     # Voice fingerprinting
-│   └── attribution.py     # Attribution tracking
-├── database/
-│   ├── __init__.py
-│   ├── models.py          # SQLAlchemy models
-│   ├── migrations/        # Alembic migrations
-│   └── session.py         # DB session management
-├── api/
-│   ├── __init__.py
-│   ├── routes.py          # FastAPI routes
-│   ├── schemas.py         # Pydantic request/response models
-│   └── auth.py            # JWT authentication
-├── storage/
-│   ├── __init__.py
-│   ├── redis_client.py    # Redis session management
-│   └── cache.py           # Caching layer
-└── utils/
-    ├── __init__.py
-    ├── logging.py         # Structured logging
-    ├── security.py        # Security utilities
-    └── exceptions.py      # Custom exceptions
-```
+## 🛡️ Security Integration Requirements
 
-#### 1.2 Database Schema Design
-**Tables for Multi-Corpus Storage:**
+> **Security Foundation**: All implementation must comply with security requirements defined in `docs/security/`
 
-```sql
--- Personal Corpus
-CREATE TABLE messages (
-    id UUID PRIMARY KEY,
-    thread_id UUID NOT NULL,
-    role VARCHAR(20) NOT NULL,
-    content TEXT NOT NULL,
-    timestamp TIMESTAMPTZ NOT NULL,
-    source VARCHAR(50) NOT NULL,
-    channel VARCHAR(100),
-    meta JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
+### Mandatory Security Compliance
+- **Governance Rules**: Implement exact agent constraints from [`docs/security/protocols/governance-protocol.md`](docs/security/protocols/governance-protocol.md)
+- **Security Architecture**: Follow trust boundaries defined in [`docs/security/architecture/security-architecture.md`](docs/security/architecture/security-architecture.md)  
+- **Deployment Validation**: Meet all requirements in [`docs/security/compliance/deployment-security.md`](docs/security/compliance/deployment-security.md)
+- **Incident Response**: Integrate monitoring per [`docs/security/incident-response/incident-response-playbook.md`](docs/security/incident-response/incident-response-playbook.md)
 
-CREATE TABLE threads (
-    thread_id UUID PRIMARY KEY,
-    title VARCHAR(500),
-    participants TEXT[],
-    tags TEXT[],
-    started_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+### Security Implementation Checkpoints
+- [ ] **Week 2**: Validate governance tool implementation against protocol specification
+- [ ] **Week 4**: Security architecture review using documented trust boundaries  
+- [ ] **Week 6**: Pre-deployment security validation using compliance checklist
+- [ ] **Week 8**: Incident response procedures tested and operational
 
--- Social Corpus
-CREATE TABLE social_posts (
-    id UUID PRIMARY KEY,
-    platform VARCHAR(50) NOT NULL,
-    post_id VARCHAR(200) NOT NULL,
-    content TEXT NOT NULL,
-    author VARCHAR(200),
-    timestamp TIMESTAMPTZ NOT NULL,
-    engagement_metrics JSONB,
-    hashtags TEXT[],
-    meta JSONB,
-    UNIQUE(platform, post_id)
-);
+---
 
--- Published Corpus
-CREATE TABLE published_content (
-    id UUID PRIMARY KEY,
-    title VARCHAR(500) NOT NULL,
-    content TEXT NOT NULL,
-    url VARCHAR(1000),
-    author VARCHAR(200),
-    published_at TIMESTAMPTZ NOT NULL,
-    content_type VARCHAR(50), -- article, blog, research
-    seo_keywords TEXT[],
-    meta JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
+## 🏗️ Protocol Architecture Strategy
 
--- Voice Fingerprints
-CREATE TABLE voice_fingerprints (
-    id UUID PRIMARY KEY,
-    corpus_type VARCHAR(20) NOT NULL, -- personal, social, published
-    collocations JSONB NOT NULL,
-    cadence_markers JSONB NOT NULL,
-    frequency_counts JSONB NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+### Governance-Wrapped Agent Pattern
 
--- Task Execution Logs
-CREATE TABLE task_logs (
-    id UUID PRIMARY KEY,
-    task_id UUID NOT NULL,
-    agent_role VARCHAR(20) NOT NULL,
-    input_data JSONB NOT NULL,
-    output_data JSONB NOT NULL,
-    metadata JSONB NOT NULL,
-    execution_time_ms INTEGER,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### 2. PydanticAI Agent Architecture (Week 2-3)
-
-#### 2.1 Base Agent Design
 ```python
-# src/mcg_agent/agents/base.py
-from pydantic_ai import Agent
-from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
-from abc import ABC, abstractmethod
-
-class AgentInput(BaseModel):
-    task_id: str
-    content: str
-    metadata: Dict[str, Any]
-    context_pack: Optional[Dict[str, Any]] = None
-
-class AgentOutput(BaseModel):
-    agent_role: str
-    task_id: str
-    content: str
-    metadata: Dict[str, Any]
-    attribution: List[Dict[str, Any]]
-    scores: Dict[str, float]
-
-class BaseGovernanceAgent(ABC):
-    def __init__(self, agent_name: str, model: str = "gpt-4"):
-        self.agent = Agent(model=model, deps_type=AgentInput)
+# Core pattern: Each agent is a PydanticAI instance wrapped with governance
+class GovernedAgent:
+    def __init__(self, agent_name: str, governance_config: GovernanceConfig):
+        self.agent = Agent(model="gpt-4", deps_type=AgentContext)
+        self.governance = GovernanceEngine(agent_name, governance_config)
         self.agent_name = agent_name
-        self.max_api_calls = self.get_max_api_calls()
-        self.api_call_count = 0
-    
-    @abstractmethod
-    def get_max_api_calls(self) -> int:
-        pass
-    
-    @abstractmethod
-    async def process(self, input_data: AgentInput) -> AgentOutput:
-        pass
-    
-    async def validate_governance_rules(self, input_data: AgentInput) -> bool:
-        # Implement governance validation
-        pass
+        
+    # All tools wrapped with protocol enforcement
+    @self.agent.tool
+    @governance_enforced(permissions=['corpus_access'], max_calls=2)
+    async def secured_corpus_query(
+        ctx: RunContext[AgentContext], 
+        corpus: str, 
+        query: str
+    ) -> CorpusResult:
+        # Governance validation occurs BEFORE execution
+        # Violations raise exceptions and terminate execution
+        return await self.corpus_connector.secure_query(corpus, query, ctx.deps)
 ```
 
-#### 2.2 Individual Agent Implementation Strategy
+### Multi-Agent Pipeline with Protocol Checkpoints
 
-**Ideator Agent (Max 2 API calls)**
-- Tool: Multi-corpus query access
-- Responsibility: Build outlines with tone/coverage scoring
-- Governance: Local tweaks vs revise call decision logic
-
-**Drafter Agent (Max 1 API call)**
-- Tool: Limited corpus access for voice anchoring
-- Responsibility: Expand outline to full draft with SEO
-- Governance: Single API call constraint
-
-**Critic Agent (Max 2 API calls + RAG)**
-- Tool: Full corpus access + RAG capabilities
-- Responsibility: Truth validation, voice checking, safety
-- Governance: Critical fail detection and stopping
-
-**Revisor Agent (MVLM preferred, 1 API fallback)**
-- Tool: MVLM + limited corpus for tone
-- Responsibility: Apply Critic corrections deterministically
-- Governance: No new content creation
-
-**Summarizer Agent (MVLM only, API fallback optional)**
-- Tool: MVLM for compression
-- Responsibility: Package output + extract keywords
-- Governance: No new vocabulary introduction
-
-### 3. Context Assembly System (Week 3-4)
-
-#### 3.1 Voice Fingerprinting Engine
 ```python
-# src/mcg_agent/context/fingerprint.py
-class VoiceFingerprint:
-    def __init__(self, corpus_type: str):
-        self.corpus_type = corpus_type
-        self.collocations: Dict[str, int] = {}
-        self.cadence_markers: Dict[str, float] = {}
+class ProtocolEnforcedPipeline:
+    """Five-agent pipeline with governance validation at every handoff"""
     
-    def build_fingerprint(self, texts: List[str]) -> None:
-        # Extract n-grams, sentence patterns, vocabulary preferences
-        pass
-    
-    def calculate_tone_score(self, text: str) -> float:
-        # Compare text against fingerprint patterns
-        pass
+    async def process_request(self, user_prompt: str) -> GovernedOutput:
+        context = await self.initialize_governance_context(user_prompt)
+        
+        # Each stage validates protocol compliance before execution
+        ideator_result = await self.execute_governed_stage(
+            agent=self.ideator,
+            input_data=context,
+            governance_checkpoint="outline_generation"
+        )
+        
+        drafter_result = await self.execute_governed_stage(
+            agent=self.drafter,
+            input_data=ideator_result,
+            governance_checkpoint="draft_expansion"  
+        )
+        
+        # Critic has RAG access - additional protocol validation
+        critic_result = await self.execute_governed_stage(
+            agent=self.critic,
+            input_data=drafter_result,
+            governance_checkpoint="truth_validation"
+        )
+        
+        # Revisor: MVLM primary, API fallback with governance approval
+        revisor_result = await self.execute_mvlm_stage(
+            agent=self.revisor,
+            input_data=critic_result,
+            fallback_allowed=True
+        )
+        
+        # Summarizer: MVLM only (no API fallback without emergency authorization)
+        final_result = await self.execute_mvlm_stage(
+            agent=self.summarizer,
+            input_data=revisor_result,
+            fallback_allowed=False
+        )
+        
+        return final_result
 ```
 
-#### 3.2 Context Pack Builder
-```python
-# src/mcg_agent/context/assembly.py
-class ContextPack(BaseModel):
-    task_id: str
-    snippets: List[Dict[str, Any]]
-    attribution: List[Dict[str, Any]]
-    voice_samples: Dict[str, List[str]]
-    coverage_score: float
-    tone_score: float
-    diversity_check: bool
+---
 
-class ContextAssembly:
+## 📋 Phase One: Protocol Layer Implementation (8 Weeks)
+
+### Week 1-2: Governance Protocol Foundation
+
+#### Core Governance Engine
+```python
+# governance/protocol.py - Implements exact rules from security docs
+class GovernanceProtocol:
+    """
+    Implements agent permission matrix from:
+    docs/security/protocols/governance-protocol.md
+    """
+    
+    AGENT_PERMISSIONS = {
+        'ideator': {
+            'max_api_calls': 2,
+            'corpus_access': ['personal', 'social', 'published'],
+            'rag_access': False,
+            'mvlm_access': True
+        },
+        'drafter': {
+            'max_api_calls': 1,
+            'corpus_access': ['social', 'published'],  # limited
+            'rag_access': False,
+            'mvlm_access': True
+        },
+        'critic': {
+            'max_api_calls': 2,
+            'corpus_access': ['personal', 'social', 'published'],
+            'rag_access': True,  # ONLY agent with RAG access
+            'mvlm_access': True
+        },
+        'revisor': {
+            'max_api_calls': 1,  # fallback only
+            'corpus_access': [],  # inherited context only
+            'rag_access': False,
+            'mvlm_access': True,  # PRIMARY
+            'mvlm_preferred': True
+        },
+        'summarizer': {
+            'max_api_calls': 0,  # emergency fallback only
+            'corpus_access': [],  # no new queries
+            'rag_access': False,
+            'mvlm_access': True,  # ONLY
+            'mvlm_required': True
+        }
+    }
+```
+
+#### Tool-Level Protocol Enforcement
+```python
+# governance/decorators.py - Protocol enforcement decorators
+def governance_enforced(
+    permissions: List[str],
+    max_calls: int = 0,
+    corpus_restrictions: List[str] = None,
+    requires_mvlm_primary: bool = False
+):
+    """Decorator that enforces governance rules at tool invocation"""
+    def decorator(tool_func):
+        async def wrapper(ctx: RunContext[AgentContext], *args, **kwargs):
+            # 1. Validate agent permissions against protocol
+            await GovernanceValidator.validate_tool_access(
+                agent_name=ctx.deps.agent_role,
+                tool_permissions=permissions,
+                current_context=ctx.deps
+            )
+            
+            # 2. Check API call limits
+            if max_calls > 0:
+                await CallLimitValidator.validate_api_call(
+                    ctx.deps.agent_role, 
+                    ctx.deps.task_id,
+                    max_calls
+                )
+            
+            # 3. Validate corpus access if applicable
+            if corpus_restrictions:
+                await CorpusAccessValidator.validate_access(
+                    ctx.deps.agent_role,
+                    corpus_restrictions
+                )
+            
+            # 4. MVLM preference check
+            if requires_mvlm_primary:
+                if not await MVLMAvailabilityChecker.is_mvlm_available():
+                    if not await GovernanceProtocol.can_fallback_to_api(ctx.deps.agent_role):
+                        raise MVLMRequiredError(ctx.deps.agent_role)
+            
+            # 5. Execute with full audit logging
+            result = await tool_func(ctx, *args, **kwargs)
+            
+            # 6. Log successful execution with attribution
+            await ProtocolAuditor.log_tool_execution(
+                agent_role=ctx.deps.agent_role,
+                tool_name=tool_func.__name__,
+                governance_validation_passed=True,
+                execution_result_hash=hash(str(result)),
+                task_id=ctx.deps.task_id
+            )
+            
+            return result
+        return wrapper
+    return decorator
+```
+
+### Week 3-4: Agent Implementation with Protocol Integration
+
+#### Ideator Agent (Max 2 API Calls, Full Corpus Access)
+```python
+# agents/ideator.py
+class IdeatorAgent(GovernedAgent):
+    def __init__(self):
+        super().__init__(
+            agent_name="ideator",
+            governance_config=GovernanceConfig.for_ideator()
+        )
+        
+    @self.agent.tool
+    @governance_enforced(
+        permissions=['corpus_access', 'outline_generation'],
+        max_calls=2,
+        corpus_restrictions=['personal', 'social', 'published']
+    )
+    async def build_context_outline(
+        ctx: RunContext[AgentContext],
+        user_prompt: str
+    ) -> OutlineResult:
+        """Build outline with multi-corpus context and tone scoring"""
+        
+        # Query all authorized corpora
+        context_pack = await ContextAssembly.build_from_corpora(
+            prompt=user_prompt,
+            corpora=['personal', 'social', 'published'],
+            agent_permissions=ctx.deps.permissions
+        )
+        
+        # Generate outline with governance-approved prompt
+        outline = await self.generate_governed_outline(user_prompt, context_pack)
+        
+        # Score against governance thresholds
+        scores = await ToneScorer.evaluate_outline(outline, context_pack)
+        
+        # Decide: pass, local tweak, or revise call based on scores
+        if scores.passes_all_thresholds():
+            return OutlineResult(outline=outline, scores=scores, status="approved")
+        elif scores.minor_issues_only():
+            tweaked_outline = await self.apply_local_tweaks(outline, scores)
+            return OutlineResult(outline=tweaked_outline, scores=scores, status="tweaked")
+        else:
+            # Use second API call for revision
+            revised_outline = await self.revise_outline(outline, scores, context_pack)
+            return OutlineResult(outline=revised_outline, scores=scores, status="revised")
+```
+
+#### Critic Agent (RAG Access + Full Validation)
+```python
+# agents/critic.py  
+class CriticAgent(GovernedAgent):
+    def __init__(self):
+        super().__init__(
+            agent_name="critic", 
+            governance_config=GovernanceConfig.for_critic()
+        )
+    
+    @self.agent.tool
+    @governance_enforced(
+        permissions=['corpus_access', 'rag_access', 'truth_validation'],
+        max_calls=2,
+        corpus_restrictions=['personal', 'social', 'published']
+    )
+    async def validate_draft_truth_and_safety(
+        ctx: RunContext[AgentContext],
+        draft_content: str,
+        draft_metadata: Dict[str, Any]
+    ) -> CriticResult:
+        """Full truth, voice, SEO, and safety validation with RAG"""
+        
+        validation_results = ValidationResult()
+        
+        # 1. Voice/tone validation against corpus fingerprints
+        voice_score = await VoiceValidator.validate_against_corpus(
+            text=draft_content,
+            voice_fingerprints=ctx.deps.context_pack.voice_samples
+        )
+        validation_results.voice_score = voice_score
+        
+        # 2. Truth validation using RAG (ONLY Critic allowed)
+        fact_claims = await ClaimExtractor.extract_factual_claims(draft_content)
+        for claim in fact_claims:
+            rag_validation = await self.validate_claim_with_rag(claim)
+            validation_results.add_fact_check(claim, rag_validation)
+        
+        # 3. Safety and content policy validation
+        safety_result = await SafetyValidator.check_content_safety(draft_content)
+        validation_results.safety_result = safety_result
+        
+        # 4. SEO validation (if writing mode)
+        if ctx.deps.output_mode == "writing":
+            seo_validation = await SEOValidator.validate_seo_compliance(
+                draft_content, 
+                draft_metadata
+            )
+            validation_results.seo_validation = seo_validation
+        
+        # 5. Determine if critical failure requires pipeline termination
+        if validation_results.has_critical_failures():
+            await SecurityLogger.log_critical_failure(
+                agent="critic",
+                task_id=ctx.deps.task_id,
+                failure_reasons=validation_results.critical_failures
+            )
+            return CriticResult(
+                status="critical_failure",
+                validation_results=validation_results,
+                pipeline_action="terminate"
+            )
+        
+        return CriticResult(
+            status="validation_complete",
+            validation_results=validation_results,
+            corrections=validation_results.generate_corrections(),
+            pipeline_action="continue"
+        )
+    
+    async def validate_claim_with_rag(self, claim: FactualClaim) -> RAGValidation:
+        """RAG validation - only available to Critic agent"""
+        # This method can only be called by Critic due to governance enforcement
+        external_sources = await RAGConnector.query_external_sources(
+            query=claim.text,
+            whitelisted_domains=self.governance.rag_whitelist,
+            max_sources=3
+        )
+        
+        validation = await FactChecker.validate_claim_against_sources(
+            claim=claim,
+            sources=external_sources
+        )
+        
+        return validation
+```
+
+#### Revisor Agent (MVLM Primary, Governed API Fallback)
+```python
+# agents/revisor.py
+class RevisorAgent(GovernedAgent):
+    def __init__(self):
+        super().__init__(
+            agent_name="revisor",
+            governance_config=GovernanceConfig.for_revisor()
+        )
+    
+    @self.agent.tool
+    @governance_enforced(
+        permissions=['correction_application', 'tone_preservation'],
+        max_calls=1,  # API fallback only
+        requires_mvlm_primary=True
+    )
+    async def apply_critic_corrections(
+        ctx: RunContext[AgentContext],
+        original_draft: str,
+        critic_corrections: List[Correction],
+        voice_samples: Dict[str, Any]
+    ) -> RevisorResult:
+        """Apply corrections using MVLM primarily, API fallback if needed"""
+        
+        try:
+            # PRIMARY: Use MVLM for deterministic correction application
+            mvlm_result = await MVLMProcessor.apply_corrections(
+                original_text=original_draft,
+                corrections=critic_corrections,
+                voice_anchors=voice_samples,
+                preserve_attribution=True
+            )
+            
+            # Validate MVLM output meets governance requirements
+            validation = await RevisorValidator.validate_mvlm_output(
+                original=original_draft,
+                revised=mvlm_result.text,
+                corrections=critic_corrections
+            )
+            
+            if validation.is_acceptable():
+                return RevisorResult(
+                    revised_text=mvlm_result.text,
+                    processing_method="mvlm",
+                    corrections_applied=mvlm_result.corrections_applied,
+                    change_log=mvlm_result.change_log,
+                    status="success"
+                )
+            else:
+                raise MVLMOutputUnacceptableError(validation.issues)
+                
+        except (MVLMFailure, MVLMOutputUnacceptableError) as e:
+            # FALLBACK: Single API call if MVLM fails and governance allows
+            if await self.governance.can_use_api_fallback(ctx.deps.task_id):
+                
+                api_result = await self.api_correction_fallback(
+                    original_draft=original_draft,
+                    corrections=critic_corrections,
+                    voice_samples=voice_samples,
+                    mvlm_failure_reason=str(e)
+                )
+                
+                return RevisorResult(
+                    revised_text=api_result.text,
+                    processing_method="api_fallback",
+                    corrections_applied=api_result.corrections_applied,
+                    change_log=api_result.change_log,
+                    fallback_reason=str(e),
+                    status="success"
+                )
+            else:
+                # Cannot use API fallback - governance violation
+                raise GovernanceViolationError(
+                    f"MVLM failed and API fallback not permitted for task {ctx.deps.task_id}"
+                )
+```
+
+#### Summarizer Agent (MVLM Only, Emergency API Fallback)
+```python
+# agents/summarizer.py
+class SummarizerAgent(GovernedAgent):
+    def __init__(self):
+        super().__init__(
+            agent_name="summarizer",
+            governance_config=GovernanceConfig.for_summarizer()  
+        )
+    
+    @self.agent.tool
+    @governance_enforced(
+        permissions=['content_compression', 'keyword_extraction'],
+        max_calls=0,  # No API calls by default
+        requires_mvlm_primary=True
+    )
+    async def compress_and_extract_metadata(
+        ctx: RunContext[AgentContext],
+        final_draft: str,
+        pipeline_metadata: Dict[str, Any]
+    ) -> SummarizerResult:
+        """Compress content and extract keywords using MVLM only"""
+        
+        try:
+            # MVLM ONLY: No API fallback without emergency authorization
+            compression_result = await MVLMProcessor.compress_content(
+                input_text=final_draft,
+                target_length=ctx.deps.target_summary_length,
+                preserve_meaning=True,
+                extract_keywords=True,
+                no_new_vocabulary=True  # Governance constraint
+            )
+            
+            # Extract long-tail keywords for metadata
+            keywords = await KeywordExtractor.extract_longtail_keywords(
+                text=compression_result.compressed_text,
+                original_text=final_draft,
+                corpus_context=ctx.deps.context_pack
+            )
+            
+            # Validate no new claims or vocabulary introduced
+            validation = await ContentValidator.validate_compression(
+                original=final_draft,
+                compressed=compression_result.compressed_text,
+                allowed_additions=["and", "the", "with", ",", "-"]  # Connectors only
+            )
+            
+            if not validation.is_valid():
+                raise CompressionViolationError(validation.violations)
+            
+            return SummarizerResult(
+                compressed_text=compression_result.compressed_text,
+                long_tail_keywords=keywords,
+                compression_ratio=len(compression_result.compressed_text) / len(final_draft),
+                trimmed_sections=compression_result.trimmed_sections,
+                processing_method="mvlm",
+                metadata_bundle=self.create_final_metadata_bundle(
+                    pipeline_metadata, keywords, compression_result
+                ),
+                status="success"
+            )
+            
+        except MVLMFailure as e:
+            # Emergency API fallback requires special authorization
+            if await EmergencyAuthorization.is_api_fallback_authorized(ctx.deps.task_id):
+                # Log emergency API usage
+                await SecurityLogger.log_emergency_api_usage(
+                    agent="summarizer",
+                    task_id=ctx.deps.task_id,
+                    authorization_reason="mvlm_failure",
+                    failure_details=str(e)
+                )
+                
+                # Single emergency API call
+                api_result = await self.emergency_api_compression(
+                    final_draft, pipeline_metadata, mvlm_failure=str(e)
+                )
+                
+                return api_result
+            else:
+                # No emergency authorization - fail gracefully
+                raise CompressionFailureError(
+                    f"MVLM compression failed and no emergency API authorization for task {ctx.deps.task_id}"
+                )
+```
+
+### Week 5-6: Pipeline Orchestration and Context Management
+
+#### Context Assembly with Attribution Tracking
+```python
+# context/assembly.py - Implements context-assembly.md requirements
+class ProtocolEnforcedContextAssembly:
+    """
+    Builds context packs following exact specifications from:
+    docs/security/protocols/governance-protocol.md
+    """
+    
     async def build_context_pack(
-        self, 
-        user_prompt: str, 
-        classification: str
+        self,
+        user_prompt: str,
+        agent_permissions: AgentPermissions,
+        classification: PromptClassification
     ) -> ContextPack:
-        # Query all corpora
-        # Apply selection rules
-        # Build attribution
-        # Calculate scores
-        pass
-```
-
-### 4. Governance Rule Engine (Week 4-5)
-
-#### 4.1 Rule Validation System
-```python
-# src/mcg_agent/governance/rules.py
-class GovernanceRules:
-    @staticmethod
-    def validate_api_call_limit(agent_name: str, call_count: int) -> bool:
-        limits = {
-            "ideator": 2,
-            "drafter": 1, 
-            "critic": 2,
-            "revisor": 1,  # fallback only
-            "summarizer": 0  # MVLM preferred
-        }
-        return call_count <= limits.get(agent_name, 0)
-    
-    @staticmethod
-    def validate_rag_access(agent_name: str) -> bool:
-        return agent_name == "critic"
-    
-    @staticmethod
-    def validate_corpus_access(agent_name: str, corpus: str) -> bool:
-        # Define corpus access rules per agent
-        pass
-```
-
-### 5. Security & Authentication Layer (Week 5-6)
-
-#### 5.1 Redis Session Management
-```python
-# src/mcg_agent/storage/redis_client.py
-class SecureRedisClient:
-    def __init__(self):
-        self.client = redis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            password=settings.REDIS_PASSWORD.get_secret_value(),
-            ssl=True,
-            ssl_cert_reqs=ssl.CERT_REQUIRED
+        """Build attributed context pack with governance validation"""
+        
+        context_pack = ContextPack(
+            task_id=str(uuid4()),
+            created_at=datetime.utcnow(),
+            classification=classification,
+            agent_permissions=agent_permissions
         )
-    
-    async def store_session_state(self, task_id: str, state: Dict) -> None:
-        # Store ephemeral task state with TTL
-        pass
-    
-    async def get_session_state(self, task_id: str) -> Optional[Dict]:
-        # Retrieve task state
-        pass
+        
+        # Query corpora based on agent permissions
+        if 'personal' in agent_permissions.corpus_access:
+            personal_snippets = await PersonalCorpusConnector.secure_query(
+                query=user_prompt,
+                agent_role=agent_permissions.agent_name,
+                max_snippets=10
+            )
+            context_pack.add_snippets(personal_snippets, corpus="personal")
+        
+        if 'social' in agent_permissions.corpus_access:
+            social_snippets = await SocialCorpusConnector.secure_query(
+                query=user_prompt,
+                agent_role=agent_permissions.agent_name,
+                max_snippets=15,
+                include_engagement_data=agent_permissions.can_access_engagement_data
+            )
+            context_pack.add_snippets(social_snippets, corpus="social")
+        
+        if 'published' in agent_permissions.corpus_access:
+            published_snippets = await PublishedCorpusConnector.secure_query(
+                query=user_prompt,
+                agent_role=agent_permissions.agent_name,
+                max_snippets=20
+            )
+            context_pack.add_snippets(published_snippets, corpus="published")
+        
+        # Build voice fingerprints for tone scoring
+        voice_fingerprints = await VoiceFingerprintEngine.build_fingerprints(
+            context_pack.all_snippets(),
+            agent_permissions.agent_name
+        )
+        context_pack.voice_fingerprints = voice_fingerprints
+        
+        # Calculate initial scores and validate diversity
+        context_pack.coverage_score = await CoverageScorer.calculate_coverage(
+            prompt=user_prompt,
+            snippets=context_pack.all_snippets()
+        )
+        
+        context_pack.diversity_check = await DiversityChecker.validate_diversity(
+            context_pack.snippets_by_corpus(),
+            min_corpora=2 if len(agent_permissions.corpus_access) > 1 else 1
+        )
+        
+        # Ensure complete attribution chain
+        await AttributionValidator.validate_complete_attribution(context_pack)
+        
+        return context_pack
 ```
 
-#### 5.2 JWT Authentication
+#### Agent Context and Dependency Injection
 ```python
-# src/mcg_agent/api/auth.py
-class JWTAuth:
-    @staticmethod
-    def create_access_token(user_data: Dict) -> str:
-        # Generate JWT with expiration
-        pass
+# governance/context.py - AgentContext for RunContext dependency injection
+class AgentContext(BaseModel):
+    """Typed context passed to all PydanticAI agents via RunContext"""
     
-    @staticmethod
-    def verify_token(token: str) -> Optional[Dict]:
-        # Validate and decode JWT
-        pass
+    # Core identification
+    task_id: str
+    agent_role: str  # ideator, drafter, critic, revisor, summarizer
+    
+    # Governance state
+    permissions: AgentPermissions
+    api_calls_made: int = 0
+    governance_violations: List[str] = []
+    
+    # Content and context
+    context_pack: Optional[ContextPack] = None
+    input_content: str
+    pipeline_metadata: Dict[str, Any] = {}
+    
+    # Attribution chain
+    attribution_chain: List[Attribution] = []
+    voice_fingerprints: Dict[str, VoiceFingerprint] = {}
+    
+    # Output configuration
+    output_mode: str  # chat, writing, voice
+    target_summary_length: Optional[int] = None
+    
+    # Security tracking
+    created_at: datetime
+    last_updated: datetime
+    security_clearance: str = "standard"
+    
+    def add_attribution(self, attribution: Attribution) -> None:
+        """Add attribution while preserving immutable chain"""
+        self.attribution_chain.append(attribution)
+        self.last_updated = datetime.utcnow()
+    
+    def increment_api_calls(self) -> None:
+        """Track API usage for governance validation"""
+        self.api_calls_made += 1
+        self.last_updated = datetime.utcnow()
+    
+    def add_governance_violation(self, violation: str) -> None:
+        """Record governance violations for audit trail"""
+        self.governance_violations.append(violation)
+        self.last_updated = datetime.utcnow()
 ```
 
-## 📊 Implementation Timeline
+### Week 7-8: Security Integration and Testing
 
-### Week 1-2: Foundation
-- [ ] Set up complete directory structure
-- [ ] Implement database models and migrations
-- [ ] Create base PydanticAI agent classes
-- [ ] Set up Redis client with security
-
-### Week 3-4: Core Agents
-- [ ] Implement all five PydanticAI agents
-- [ ] Build context assembly system
-- [ ] Implement voice fingerprinting
-- [ ] Create governance rule engine
-
-### Week 5-6: Integration & Security
-- [ ] Build FastAPI routes and authentication
-- [ ] Implement comprehensive logging
-- [ ] Add input/output validation
-- [ ] Create error handling and recovery
-
-### Week 7-8: Testing & Deployment Prep
-- [ ] Unit tests for all components
-- [ ] Integration tests for agent pipeline
-- [ ] Performance testing and optimization
-- [ ] Security audit and hardening
-
-## 🔧 Key PydanticAI Implementation Details
-
-### Agent Dependency Injection
+#### Security Testing Framework
 ```python
-from pydantic_ai import Agent, RunContext
-
-# Each agent will receive typed dependencies
-@agent.system_prompt
-def system_prompt(ctx: RunContext[AgentInput]) -> str:
-    return f"You are the {ctx.deps.agent_role}. Follow governance rules strictly."
-
-@agent.tool
-async def query_corpus(ctx: RunContext[AgentInput], corpus: str, query: str) -> str:
-    # Validate governance rules before corpus access
-    if not GovernanceRules.validate_corpus_access(ctx.deps.agent_role, corpus):
-        raise PermissionError(f"{ctx.deps.agent_role} cannot access {corpus}")
+# tests/security/test_governance_protocol.py
+class TestGovernanceProtocolEnforcement:
+    """
+    Validates implementation against:
+    docs/security/protocols/governance-protocol.md
+    docs/security/compliance/deployment-security.md
+    """
     
-    # Perform corpus query with attribution
-    return await corpus_connector.search(query)
-```
-
-### Multi-Agent Orchestration
-```python
-# src/mcg_agent/main.py
-class MultiCorpusGovernanceSystem:
-    def __init__(self):
-        self.agents = {
-            'ideator': IdeatorAgent(),
-            'drafter': DrafterAgent(), 
-            'critic': CriticAgent(),
-            'revisor': RevisorAgent(),
-            'summarizer': SummarizerAgent()
-        }
-    
-    async def process_request(self, user_prompt: str) -> Dict[str, Any]:
+    async def test_ideator_api_call_limits(self):
+        """Test that Ideator cannot exceed 2 API calls per task"""
         task_id = str(uuid4())
+        ideator = IdeatorAgent()
         
-        # 1. Classification and context assembly
-        context_pack = await self.context_assembly.build_context_pack(
-            user_prompt, 
-            classification
+        # First call should succeed
+        result1 = await ideator.build_context_outline(
+            AgentContext(task_id=task_id, agent_role="ideator", input_content="test")
         )
+        assert result1.status == "success"
         
-        # 2. Sequential agent processing with governance
-        result = context_pack
-        for agent_name in ['ideator', 'drafter', 'critic', 'revisor', 'summarizer']:
-            agent = self.agents[agent_name]
-            result = await agent.process(result)
-            
-            # Log each step with attribution
-            await self.log_agent_execution(task_id, agent_name, result)
-            
-            # Check for critical failures
-            if result.metadata.get('critical_fail'):
-                return self.handle_critical_failure(task_id, result)
+        # Second call should succeed
+        result2 = await ideator.build_context_outline(
+            AgentContext(task_id=task_id, agent_role="ideator", input_content="test")
+        )
+        assert result2.status == "success"
         
-        return result
+        # Third call should raise APICallLimitExceededError
+        with pytest.raises(APICallLimitExceededError):
+            await ideator.build_context_outline(
+                AgentContext(task_id=task_id, agent_role="ideator", input_content="test")
+            )
+    
+    async def test_drafter_cannot_access_personal_corpus(self):
+        """Test that Drafter is blocked from Personal corpus access"""
+        drafter = DrafterAgent()
+        
+        with pytest.raises(UnauthorizedCorpusAccessError) as exc_info:
+            await drafter.query_corpus(
+                AgentContext(agent_role="drafter", task_id=str(uuid4())),
+                corpus="personal",
+                query="test"
+            )
+        
+        assert exc_info.value.agent_name == "drafter"
+        assert exc_info.value.corpus == "personal"
+    
+    async def test_non_critic_rag_access_blocked(self):
+        """Test that only Critic can access RAG endpoints"""
+        ideator = IdeatorAgent()
+        
+        with pytest.raises(UnauthorizedRAGAccessError) as exc_info:
+            await ideator.query_external_rag(
+                AgentContext(agent_role="ideator", task_id=str(uuid4())),
+                query="test external query"
+            )
+        
+        assert exc_info.value.agent_name == "ideator"
+    
+    async def test_revisor_mvlm_preference_enforcement(self):
+        """Test that Revisor uses MVLM primarily and API only as fallback"""
+        revisor = RevisorAgent()
+        
+        # Mock MVLM success - should use MVLM
+        with patch('MVLMProcessor.apply_corrections', return_value=mock_mvlm_result):
+            result = await revisor.apply_critic_corrections(
+                AgentContext(agent_role="revisor", task_id=str(uuid4())),
+                original_draft="test",
+                critic_corrections=[],
+                voice_samples={}
+            )
+            assert result.processing_method == "mvlm"
+        
+        # Mock MVLM failure - should fall back to API (if governance allows)
+        with patch('MVLMProcessor.apply_corrections', side_effect=MVLMFailure("test")):
+            result = await revisor.apply_critic_corrections(
+                AgentContext(agent_role="revisor", task_id=str(uuid4())),
+                original_draft="test", 
+                critic_corrections=[],
+                voice_samples={}
+            )
+            assert result.processing_method == "api_fallback"
+            assert result.fallback_reason == "test"
+    
+    async def test_summarizer_mvlm_only_enforcement(self):
+        """Test that Summarizer cannot use API without emergency authorization"""
+        summarizer = SummarizerAgent()
+        
+        # Mock MVLM failure without emergency authorization
+        with patch('MVLMProcessor.compress_content', side_effect=MVLMFailure("test")):
+            with patch('EmergencyAuthorization.is_api_fallback_authorized', return_value=False):
+                with pytest.raises(CompressionFailureError):
+                    await summarizer.compress_and_extract_metadata(
+                        AgentContext(agent_role="summarizer", task_id=str(uuid4())),
+                        final_draft="test content",
+                        pipeline_metadata={}
+                    )
 ```
 
-## 🛡️ Security Implementation Priorities
+#### Security Monitoring Integration
+```python
+# monitoring/security_monitor.py - Implements incident-response-playbook.md
+class GovernanceViolationMonitor:
+    """
+    Real-time monitoring following:
+    docs/security/incident-response/incident-response-playbook.md
+    """
+    
+    async def monitor_governance_violations(self):
+        """Continuous monitoring for governance rule violations"""
+        
+        async for violation_event in SecurityEventStream.listen():
+            
+            # Classify violation severity
+            severity = self.classify_violation_severity(violation_event)
+            
+            # Immediate containment for critical violations
+            if severity == ViolationSeverity.CRITICAL:
+                await self.execute_critical_containment(violation_event)
+            
+            # Create incident ticket
+            incident = await IncidentManager.create_incident(
+                severity=severity,
+                violation_type=violation_event.type,
+                agent_context=violation_event.context,
+                detection_time=datetime.utcnow()
+            )
+            
+            # Alert security team
+            await SecurityAlerter.send_alert(incident)
+            
+            # Log for audit trail
+            await SecurityLogger.log_violation_response(
+                incident_id=incident.id,
+                violation=violation_event,
+                containment_actions=incident.containment_actions,
+                response_time_ms=incident.response_time_ms
+            )
+    
+    async def execute_critical_containment(self, violation: SecurityViolation):
+        """Immediate containment for critical governance violations"""
+        
+        # Terminate affected task immediately
+        await PipelineController.emergency_terminate(violation.task_id)
+        
+        # Revoke session if user-related
+        if violation.user_id:
+            await SessionManager.revoke_user_session(violation.user_id)
+        
+        # Block IP if attack-like behavior
+        if violation.appears_malicious():
+            await NetworkSecurity.block_ip_temporarily(
+                ip_address=violation.source_ip,
+                duration_minutes=30
+            )
+        
+        # Alert security team immediately
+        await SecurityAlerter.send_critical_alert(
+            message=f"Critical governance violation: {violation.type}",
+            violation_details=violation.to_dict(),
+            containment_actions=["task_terminated", "session_revoked"]
+        )
+```
 
-1. **Input Validation**: All agent inputs validated via Pydantic schemas
-2. **API Rate Limiting**: Enforce governance rules at runtime
-3. **Attribution Tracking**: Mandatory source tracking through pipeline
-4. **Session Security**: Redis with TLS, AUTH, and limited ACLs
-5. **Audit Logging**: Complete execution trail for all decisions
+---
 
-## 🚀 Success Metrics
+## 📊 Revised Implementation Timeline
 
-- [ ] All five agents implemented with PydanticAI
-- [ ] Multi-corpus retrieval with attribution
-- [ ] Voice fingerprinting and tone scoring
-- [ ] Governance rules enforced at runtime
-- [ ] Comprehensive test coverage (>80%)
-- [ ] API security hardened (JWT + validation)
-- [ ] Performance: <5s response time for chat mode
+### **Week 1-2: Protocol Foundation**
+- [ ] Governance engine implementing exact rules from security docs
+- [ ] Tool-level enforcement decorators with violation detection  
+- [ ] Agent context and dependency injection system
+- [ ] **Security Checkpoint**: Validate governance protocol against [`docs/security/protocols/governance-protocol.md`](docs/security/protocols/governance-protocol.md)
 
-This implementation plan provides a clear roadmap for building a production-ready Multi-Corpus Governance Agent system using PydanticAI as the core orchestration framework.
+### **Week 3-4: Agent Implementation**
+- [ ] All five agents with protocol-enforced tools
+- [ ] MVLM integration for Revisor and Summarizer
+- [ ] Multi-corpus connectors with access control validation
+- [ ] **Security Checkpoint**: Security architecture review using [`docs/security/architecture/security-architecture.md`](docs/security/architecture/security-architecture.md)
+
+### **Week 5-6: Pipeline Orchestration**
+- [ ] End-to-end pipeline with governance checkpoints
+- [ ] Context assembly with attribution tracking
+- [ ] Real-time monitoring and violation response
+- [ ] **Security Checkpoint**: Pre-deployment validation using [`docs/security/compliance/deployment-security.md`](docs/security/compliance/deployment-security.md)
+
+### **Week 7-8: Security Integration**
+- [ ] Comprehensive security testing suite
+- [ ] Incident response procedures integration
+- [ ] Performance optimization and scaling preparation
+- [ ] **Final Security Checkpoint**: All security requirements validated and operational per [`docs/security/incident-response/incident-response-playbook.md`](docs/security/incident-response/incident-response-playbook.md)
+
+---
+
+## ✅ Success Criteria
+
+### Technical Requirements
+- [ ] All five agents operational with protocol enforcement
+- [ ] Zero governance rule bypasses possible (architecturally prevented)
+- [ ] MVLM primary processing for Revisor/Summarizer with controlled API fallback
+- [ ] Complete audit trail with immutable attribution chain
+- [ ] Real-time security monitoring with automated violation response
+
+### Security Compliance
+- [ ] 100% compliance with all security documentation requirements
+- [ ] All deployment security checklist items validated
+- [ ] Incident response procedures tested and operational
+- [ ] Governance protocol enforcement tested and verified
+
+### Performance Targets
+- [ ] <5s response time for chat mode
+- [ ] <15s response time for writing mode  
+- [ ] >80% voice fingerprint matching accuracy
+- [ ] <1% critical failure rate with graceful recovery
+
+---
+
+**Document Approval Required Before Implementation:**
+- [ ] Security Team Lead: Protocol security validation
+- [ ] Development Team Lead: Technical architecture approval  
+- [ ] Product Manager: Requirements alignment confirmation
+
+**Next Steps:**
+1. Review and approve this revised implementation plan
+2. Begin Week 1-2 Protocol Foundation implementation
+3. Regular security checkpoints per schedule above
+
+---
