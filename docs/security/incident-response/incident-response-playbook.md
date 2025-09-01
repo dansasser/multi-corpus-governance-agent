@@ -12,7 +12,7 @@
 This playbook provides step-by-step procedures for responding to security incidents in the Multi-Corpus Governance Agent system. All incidents must be handled according to these procedures to ensure consistent, effective response and proper evidence preservation.
 
 ### 📞 Emergency Contacts
-- **Security Incident Hotline**: `security-incidents@mcg-agent.com`
+- **Security Incident Hotline**: `security-incidents@gorombo.com`
 - **Primary Security Lead**: [Name] - [Phone] - [Email]
 - **Backup Security Lead**: [Name] - [Phone] - [Email]  
 - **Development Team Lead**: [Name] - [Phone] - [Email]

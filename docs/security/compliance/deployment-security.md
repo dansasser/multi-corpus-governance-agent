@@ -180,7 +180,7 @@ This document provides a comprehensive security checklist that MUST be completed
 - [ ] **Token Validation**
   ```bash
   # Test token validation
-  curl -H "Authorization: Bearer invalid_token" https://api.mcg-agent.com/health
+  curl -H "Authorization: Bearer invalid_token" https://api.gorombo.com/health
   # Should return 401 Unauthorized
   ```
 - [ ] **Session Management**

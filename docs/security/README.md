@@ -84,9 +84,9 @@ The Multi-Corpus Governance Agent implements a **defense-in-depth security strat
 
 ## 📞 Security Contacts
 
-- **Security Incidents**: security-incidents@mcg-agent.com
-- **Governance Questions**: governance@mcg-agent.com  
-- **Compliance Issues**: compliance@mcg-agent.com
+- **Security Incidents**: security-incidents@gorombo.com
+- **Governance Questions**: governance@gorombo.com  
+- **Compliance Issues**: compliance@gorombo.com
 - **Emergency Hotline**: +1-XXX-XXX-XXXX
 
 ---
