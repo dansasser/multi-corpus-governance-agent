@@ -165,6 +165,23 @@ It describes the project’s intent, expected environment, coding conventions, a
 
 ---
 
+## 🔍 Corpus Search Modules
+
+Each agent may query corpora through well-defined search modules:
+
+- [`personal-search.md`](./personal-search.md) → DB-only access (chat history, notes, drafts).  
+- [`social-search.md`](./social-search.md) → DB + RAG hybrid (short-form posts, hashtags, engagement).  
+- [`published-search.md`](./published-search.md) → DB + RAG hybrid (articles, blogs, research).  
+
+### Access Rules
+- **Ideator** → may call all three; RAG allowed for Social/Published only if coverage gaps.  
+- **Drafter** → may use Personal + Social for tone anchoring; no RAG.  
+- **Critic** → full access; always permitted to invoke RAG.  
+- **Revisor** → no new queries; works with provided snippets.  
+- **Summarizer** → no queries.  
+
+---
+
 ## 🚀 Setup
 
 ### Clone the repo
