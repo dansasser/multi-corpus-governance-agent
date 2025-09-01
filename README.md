@@ -1,10 +1,10 @@
 # 📚 Multi-Corpus Governance Agent
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE.md)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)  
-[![PydanticAI](https://img.shields.io/badge/powered%20by-PydanticAI-green)](https://docs.pydantic.dev/latest/ai/)
-[![Docker](https://img.shields.io/badge/docker-image-blue?logo=docker)](https://hub.docker.com/r/your-org/multi-corpus-governance-agent)  
-[![PyPI](https://img.shields.io/pypi/v/multi-corpus-governance-agent)](https://pypi.org/project/multi-corpus-governance-agent/)  
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/) 
+[![PydanticAI](https://img.shields.io/badge/powered%20by-PydanticAI-green)](https://docs.pydantic.dev/latest/ai/) 
+[![PyPI](https://img.shields.io/pypi/v/multi-corpus-governance-agent)](https://pypi.org/project/multi-corpus-governance-agent/)
+[![Docker](https://img.shields.io/badge/docker-image-blue?logo=docker)](https://hub.docker.com/r/your-org/multi-corpus-governance-agent)
 [![License: Commercial](https://img.shields.io/badge/License-Commercial-red.svg)](LICENSE.md)
 [![Governance](https://img.shields.io/badge/Governance-Multi--Agent-green.svg)](governance.md)
 [![Docs](https://img.shields.io/badge/Docs-README-lightgrey.svg)](README.md)
