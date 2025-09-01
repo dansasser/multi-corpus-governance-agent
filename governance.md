@@ -12,11 +12,6 @@
 
 ---
 
-⚡ This table does not replace the detailed role definitions, but it gives any coding agent or reader the **entire workflow in one glance**.
-
-Do you want me to also create a **sequence diagram (ASCII)** right under this table so the flow is visual as well?
-
-
 ```
 User Prompt
     |
