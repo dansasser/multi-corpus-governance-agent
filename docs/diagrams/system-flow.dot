@@ -1,0 +1,22 @@
+digraph G {
+  rankdir=LR;
+  node [shape=box, style=rounded];
+
+  UserPrompt -> Ideator;
+  Ideator -> Drafter;
+  Drafter -> Critic;
+  Critic -> Revisor;
+  Revisor -> Summarizer;
+  Summarizer -> FinalOutput;
+
+  // corpus access
+  Ideator -> PersonalCorpus [label="query"];
+  Ideator -> SocialCorpus [label="query"];
+  Ideator -> PublishedCorpus [label="query"];
+  Critic -> PublishedCorpus [label="RAG/web check"];
+  Critic -> SocialCorpus [label="RAG/web check"];
+
+  PersonalCorpus [shape=ellipse];
+  SocialCorpus [shape=ellipse];
+  PublishedCorpus [shape=ellipse];
+}

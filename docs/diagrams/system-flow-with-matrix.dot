@@ -1,0 +1,28 @@
+digraph G {
+  rankdir=LR;
+  node [shape=box, style=rounded];
+
+  UserPrompt -> Ideator;
+
+  Ideator -> Drafter;
+  Drafter -> Critic;
+  Critic -> Revisor;
+  Revisor -> Summarizer;
+  Summarizer -> FinalOutput;
+
+  // Corpus connections
+  Ideator -> PersonalCorpus [label="tone"];
+  Ideator -> SocialCorpus [label="cadence"];
+  Ideator -> PublishedCorpus [label="authority"];
+
+  Drafter -> PersonalCorpus [label="style"];
+  Drafter -> SocialCorpus [label="SEO hints"];
+
+  Critic -> PublishedCorpus [label="fact check"];
+  Critic -> SocialCorpus [label="freshness"];
+  
+  // Corpus nodes
+  PersonalCorpus [shape=ellipse];
+  SocialCorpus [shape=ellipse];
+  PublishedCorpus [shape=ellipse];
+}

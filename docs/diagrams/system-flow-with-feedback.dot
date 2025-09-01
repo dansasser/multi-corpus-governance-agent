@@ -1,0 +1,15 @@
+digraph G {
+  rankdir=LR;
+  node [shape=box, style=rounded];
+
+  UserPrompt -> Ideator;
+  Ideator -> Drafter;
+  Drafter -> Critic;
+  Critic -> Revisor;
+  Revisor -> Summarizer;
+  Summarizer -> FinalOutput;
+
+  // Feedback loops
+  Critic -> Drafter [color=red, style=dashed, label="revision notes"];
+  Critic -> Revisor [color=red, style=dashed, label="tone/accuracy corrections"];
+}

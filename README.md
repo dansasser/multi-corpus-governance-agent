@@ -43,6 +43,35 @@ This design produces **accurate, auditable, and voice-aligned outputs** that can
 
 ---
 
+## 📁 Directory Structure
+
+```
+/multi-corpus-governance-agent
+│
+├── agents.md
+├── governance.md
+├── routing-matrix.md
+├── context-assembly.md
+├── personal-search.md
+├── social-search.md
+├── published-search.md
+│
+├── docs/               # long-form documentation, articles
+│    └── diagrams/           # DOT + PNG + TXT diagrams
+├── tests/              # unit and integration tests
+│
+└── src/                # 🔑 all runnable Python code
+    └── mcg_agent/      # your package namespace
+        ├── __init__.py
+        ├── main.py     # entrypoint (FastAPI app or CLI)
+        ├── agents/     # Ideator, Drafter, Critic, Revisor, Summarizer
+        ├── search/     # connectors: personal, social, published
+        ├── governance/ # enforcement rules, scoring, guardrails
+        └── utils/      # logging, attribution, shared helpers
+```
+
+---
+
 ## 📈 Sequence Flow
 
 ```

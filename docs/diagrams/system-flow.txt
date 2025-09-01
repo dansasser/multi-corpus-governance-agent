@@ -1,0 +1,15 @@
+SYSTEM FLOW (textual outline)
+
+1. User prompt received
+2. Ideator queries Personal, Social, and Published corpora
+   - Builds context pack
+   - Shapes tone + coverage
+3. Drafter expands outline into draft
+   - Uses Personal + Social for style
+4. Critic validates
+   - Fact-check with Published (DB + RAG)
+   - Style/tone check with Personal + Social
+   - Can send feedback to Drafter/Revisor
+5. Revisor applies critic feedback
+6. Summarizer condenses output and extracts metadata
+7. Final output returned
