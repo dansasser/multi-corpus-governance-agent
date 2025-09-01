@@ -1,0 +1,32 @@
+# Core language model orchestration
+pydantic-ai==0.0.10
+
+# Web framework & API server
+fastapi==0.115.0
+uvicorn[standard]==0.31.0
+
+# Database connectors
+sqlalchemy==2.0.35
+alembic==1.13.2
+psycopg2-binary==2.9.9        # Postgres
+aiosqlite==0.20.0             # Async SQLite
+
+# Redis client
+redis==5.0.8
+
+# Security & authentication
+python-dotenv==1.0.1
+passlib[bcrypt]==1.7.4
+pyjwt[crypto]==2.9.0
+
+# Observability
+structlog==24.4.0
+loguru==0.7.2
+
+# Testing
+pytest==8.3.3
+httpx==0.27.2
+
+# Type checking / linting (optional but recommended)
+mypy==1.11.2
+ruff==0.6.9
