@@ -1,7 +1,3 @@
-Here’s your updated **LICENSE.md** for the **Multi-Corpus Governance Agent**, keeping the same structure and tone as your SIM-ONE Framework license but stopping at **Section 3** as you requested.
-
----
-
 # License – Multi-Corpus Governance Agent
 
 ## 1. Overview
