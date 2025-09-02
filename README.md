@@ -7,7 +7,7 @@
 [![License: Commercial](https://img.shields.io/badge/License-Commercial-red.svg)](LICENSE.md)
 [![Governance](https://img.shields.io/badge/Governance-Multi--Agent-green.svg)](governance.md)
 [![Docs](https://img.shields.io/badge/Docs-README-lightgrey.svg)](README.md)
-[![Status](https://img.shields.io/badge/Status-Phase%20Zero-orange.svg)](#)
+[![Status](https://img.shields.io/badge/Status-Phase%20One%20Complete-green.svg)](#)
 [![Security Policy](https://img.shields.io/badge/Security-Policy-yellow.svg)](SECURITY.md)
 [![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -28,6 +28,10 @@ This design produces **accurate, auditable, and voice-aligned outputs** that can
 * 🛡 **MVLM firebreaks** (Revisor + Summarizer) to lock tone and prevent drift.
 * 📊 **Metadata logging**: attribution, long-tail keywords, change logs, and token usage.
 * 🗣 **Persona alignment** for consistent voice across chat, writing, and publishing.
+* 🌐 **FastAPI Integration**: Production-ready REST API with authentication and monitoring.
+* 🔐 **JWT Authentication**: Secure session management with Redis backend.
+* 📈 **Health Monitoring**: Kubernetes-ready health checks and system metrics.
+* 🚀 **Production Ready**: Complete deployment scripts and configuration.
 
 ---
 
@@ -64,11 +68,60 @@ This design produces **accurate, auditable, and voice-aligned outputs** that can
     └── mcg_agent/      # your package namespace
         ├── __init__.py
         ├── main.py     # entrypoint (FastAPI app or CLI)
+        ├── api/        # 🌐 FastAPI application and routers
+        │   ├── app.py      # main FastAPI application
+        │   ├── auth.py     # authentication middleware
+        │   └── routers/    # API endpoint routers
+        │       ├── auth.py      # authentication endpoints
+        │       ├── health.py    # health monitoring endpoints
+        │       ├── agents.py    # five-agent pipeline API
+        │       └── monitoring.py # security & compliance monitoring
+        ├── auth/       # 🔐 JWT authentication and session management
         ├── agents/     # Ideator, Drafter, Critic, Revisor, Summarizer
         ├── search/     # connectors: personal, social, published
         ├── governance/ # enforcement rules, scoring, guardrails
+        ├── database/   # 🗄️ database models, migrations, connections
+        ├── cli/        # 💻 command-line interface tools
         └── utils/      # logging, attribution, shared helpers
 ```
+
+---
+
+## 🌐 FastAPI Endpoints
+
+The MCG Agent provides a comprehensive REST API for interacting with the five-agent pipeline:
+
+### Authentication Endpoints
+- `POST /auth/login` - User authentication with JWT tokens
+- `POST /auth/logout` - Session termination and token revocation
+- `POST /auth/refresh` - JWT token refresh
+- `POST /auth/register` - User registration
+- `GET /auth/me` - Current user profile
+
+### Agent Pipeline Endpoints
+- `POST /agents/pipeline/execute` - Execute complete five-agent pipeline
+- `POST /agents/ideator` - Run Ideator agent individually
+- `POST /agents/drafter` - Run Drafter agent individually
+- `POST /agents/critic` - Run Critic agent individually
+- `POST /agents/revisor` - Run Revisor agent individually
+- `POST /agents/summarizer` - Run Summarizer agent individually
+- `GET /agents/corpus/query` - Query multi-corpus data with access control
+
+### Health & Monitoring Endpoints
+- `GET /health` - Comprehensive system health check
+- `GET /health/live` - Kubernetes liveness probe
+- `GET /health/ready` - Kubernetes readiness probe
+- `GET /health/ping` - Basic connectivity check
+- `GET /monitoring/metrics` - System performance metrics
+- `GET /monitoring/violations` - Governance violation tracking
+- `GET /monitoring/usage` - API usage analytics
+
+### Development & Production Scripts
+- `./scripts/start-dev.sh` - Start development server with hot reload
+- `./scripts/start-prod.sh` - Start production server with Gunicorn
+- `./scripts/init-db.sh` - Initialize database and run migrations
+- `./scripts/run-tests.sh` - Comprehensive test suite with coverage
+- `./scripts/health-check.sh` - Health monitoring script
 
 ---
 
@@ -206,10 +259,49 @@ Routing + Corpora Pull
 
 ## 🚀 Roadmap
 
-* [ ] Phase 1: Writing assistant + chat answering.
-* [ ] Phase 2: Real-time voice with OpenAI Realtime API.
-* [ ] Phase 3: Telephony integration (Twilio).
-* [ ] Phase 4: Expand MVLMs for multiple personas (neutral, casual, worldview).
+* [x] **Phase 1**: FastAPI integration with authentication, health monitoring, and agent pipeline API.
+* [ ] **Phase 2**: Writing assistant + chat answering with web interface.
+* [ ] **Phase 3**: Real-time voice with OpenAI Realtime API.
+* [ ] **Phase 4**: Telephony integration (Twilio).
+* [ ] **Phase 5**: Expand MVLMs for multiple personas (neutral, casual, worldview).
+
+## 🏃‍♂️ Quick Start
+
+### 1. Setup Environment
+```bash
+git clone https://github.com/dansasser/multi-corpus-governance-agent.git
+cd multi-corpus-governance-agent
+./scripts/setup.sh
+```
+
+### 2. Configure Environment
+```bash
+# Copy and edit .env file
+cp .env.example .env
+# Edit .env with your database URL, Redis URL, and API keys
+```
+
+### 3. Initialize Database
+```bash
+./scripts/init-db.sh --seed
+```
+
+### 4. Start Development Server
+```bash
+./scripts/start-dev.sh
+```
+
+The API will be available at `http://localhost:8000` with interactive documentation at `http://localhost:8000/docs`.
+
+### 5. Run Tests
+```bash
+./scripts/run-tests.sh
+```
+
+### 6. Health Check
+```bash
+./scripts/health-check.sh --verbose
+```
 
 ---
 

@@ -10,14 +10,19 @@ It describes the project’s intent, the expected environment, coding convention
 ## 🛠 Tech Stack
 
 * **Language**: Python 3.11+
-* **Framework**: [PydanticAI](https://docs.pydantic.dev/latest/ai/)
+* **Framework**: [PydanticAI](https://docs.pydantic.dev/latest/ai/) + [FastAPI](https://fastapi.tiangolo.com/)
 * **Core Libraries**:
 
   * `pydantic-ai` → agent orchestration
-  * `fastapi` → serving APIs (planned)
-  * `httpx` → HTTP calls (planned)
-  * `sqlalchemy` → database layer (optional, planned)
-* **Database**: SQLite (dev) / Postgres (production option)
+  * `fastapi` → REST API server ✅ **IMPLEMENTED**
+  * `uvicorn` + `gunicorn` → ASGI server for production
+  * `httpx` → async HTTP client
+  * `sqlalchemy` → database ORM ✅ **IMPLEMENTED**  
+  * `redis` → session management and caching ✅ **IMPLEMENTED**
+  * `PyJWT` → JSON Web Token authentication ✅ **IMPLEMENTED**
+* **Database**: SQLite (dev) / PostgreSQL (production)
+* **Authentication**: JWT with Redis session management ✅ **IMPLEMENTED**
+* **Monitoring**: Health checks, metrics, and governance violation tracking ✅ **IMPLEMENTED**
 * **Containerization**: Docker (future)
 
 ---
@@ -69,23 +74,85 @@ DATABASE_URL=sqlite:///./db.sqlite3
 
 ## ▶️ Usage
 
-### Run dev server
+### Database Initialization
 
 ```bash
-uvicorn app.main:app --reload
+# Initialize database with migrations and optional seed data
+./scripts/init-db.sh --seed
 ```
 
-### Run tests
+### Development Server
 
 ```bash
-pytest tests/
+# Start development server with hot reload
+./scripts/start-dev.sh
+
+# Alternative: Use CLI tool
+mcg-agent serve --reload
+
+# Alternative: Direct uvicorn
+uvicorn src.mcg_agent.api.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Lint & format
+The API will be available at:
+- **Main API**: `http://localhost:8000`
+- **Interactive Docs**: `http://localhost:8000/docs` 
+- **Health Check**: `http://localhost:8000/health`
+
+### Production Server
 
 ```bash
-black .
-ruff check .
+# Start production server with Gunicorn
+./scripts/start-prod.sh
+
+# Alternative: Use CLI with multiple workers  
+mcg-agent serve --workers 4
+```
+
+### Testing
+
+```bash
+# Run comprehensive test suite
+./scripts/run-tests.sh
+
+# Run specific test types
+./scripts/run-tests.sh --unit          # Unit tests only
+./scripts/run-tests.sh --integration   # Integration tests only
+./scripts/run-tests.sh --api          # API tests only
+./scripts/run-tests.sh --fast         # Fast mode (no coverage)
+
+# Alternative: Direct pytest
+pytest tests/ -v --cov=src/mcg_agent
+```
+
+### Health Monitoring
+
+```bash
+# Check system health
+./scripts/health-check.sh --verbose
+
+# Check health with different output formats
+./scripts/health-check.sh --format json
+./scripts/health-check.sh --format prometheus
+
+# Monitor specific endpoint
+curl http://localhost:8000/health
+```
+
+### Code Quality
+
+```bash
+# Format code
+black src/ tests/
+
+# Sort imports
+isort src/ tests/
+
+# Lint code
+flake8 src/ tests/
+
+# Type checking
+mypy src/
 ```
 
 ---
@@ -184,56 +251,148 @@ Each agent may query corpora through well-defined search modules:
 
 ## 🚀 Setup
 
-### Clone the repo
+### Automated Setup (Recommended)
 
 ```bash
-git clone https://github.com/your-org/multi-corpus-governance-agent.git
+git clone https://github.com/dansasser/multi-corpus-governance-agent.git
 cd multi-corpus-governance-agent
+./scripts/setup.sh
 ```
 
-### Create environment
+This script will:
+- Create and activate virtual environment
+- Install all dependencies (FastAPI, authentication, database tools)
+- Validate database and Redis connections
+- Generate `.env` template with security placeholders
+
+### Manual Setup
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+# Clone the repository
+git clone https://github.com/dansasser/multi-corpus-governance-agent.git
+cd multi-corpus-governance-agent
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies with development tools
+pip install -e .[dev]
+
+# Or production only
+pip install -e .
 ```
 
-### Install dependencies
+### Environment Variables
+
+Create `.env` with:
 
 ```bash
-pip install -r requirements.txt
-```
+# Database Configuration
+DATABASE_URL=sqlite:///./mcg_agent.db
 
-### Environment variables
+# Redis Configuration (session management)
+REDIS_URL=redis://localhost:6379/0
 
-Create `.env`:
+# Security Keys (generate secure values!)
+JWT_SECRET_KEY=your-jwt-secret-key-here
+ENCRYPTION_KEY=your-32-byte-encryption-key
 
-```
-OPENAI_API_KEY=your-key
-DATABASE_URL=sqlite:///./db.sqlite3
+# API Keys
+OPENAI_API_KEY=your-openai-api-key
+ANTHROPIC_API_KEY=your-anthropic-api-key
+
+# Server Configuration
+HOST=0.0.0.0
+PORT=8000
+ENVIRONMENT=development
+DEBUG=true
+LOG_LEVEL=INFO
 ```
 
 ---
 
 ## ▶️ Usage
 
-### Run dev server
+### Database Initialization
 
 ```bash
-uvicorn app.main:app --reload
+# Initialize database with migrations and optional seed data
+./scripts/init-db.sh --seed
 ```
 
-### Run tests
+### Development Server
 
 ```bash
-pytest tests/
+# Start development server with hot reload
+./scripts/start-dev.sh
+
+# Alternative: Use CLI tool
+mcg-agent serve --reload
+
+# Alternative: Direct uvicorn
+uvicorn src.mcg_agent.api.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Lint & format
+The API will be available at:
+- **Main API**: `http://localhost:8000`
+- **Interactive Docs**: `http://localhost:8000/docs` 
+- **Health Check**: `http://localhost:8000/health`
+
+### Production Server
 
 ```bash
-black .
-ruff check .
+# Start production server with Gunicorn
+./scripts/start-prod.sh
+
+# Alternative: Use CLI with multiple workers  
+mcg-agent serve --workers 4
+```
+
+### Testing
+
+```bash
+# Run comprehensive test suite
+./scripts/run-tests.sh
+
+# Run specific test types
+./scripts/run-tests.sh --unit          # Unit tests only
+./scripts/run-tests.sh --integration   # Integration tests only
+./scripts/run-tests.sh --api          # API tests only
+./scripts/run-tests.sh --fast         # Fast mode (no coverage)
+
+# Alternative: Direct pytest
+pytest tests/ -v --cov=src/mcg_agent
+```
+
+### Health Monitoring
+
+```bash
+# Check system health
+./scripts/health-check.sh --verbose
+
+# Check health with different output formats
+./scripts/health-check.sh --format json
+./scripts/health-check.sh --format prometheus
+
+# Monitor specific endpoint
+curl http://localhost:8000/health
+```
+
+### Code Quality
+
+```bash
+# Format code
+black src/ tests/
+
+# Sort imports
+isort src/ tests/
+
+# Lint code
+flake8 src/ tests/
+
+# Type checking
+mypy src/
 ```
 
 ---
@@ -275,15 +434,53 @@ ruff check .
 
 ---
 
+## 🌐 FastAPI Integration ✅ **IMPLEMENTED**
+
+The MCG Agent now includes a complete REST API with the following endpoints:
+
+### Authentication & Security
+- `POST /auth/login` - User authentication with JWT tokens
+- `POST /auth/logout` - Session termination and token revocation 
+- `POST /auth/refresh` - JWT token refresh
+- `GET /auth/me` - Current user profile
+- Middleware for request logging, security headers, and governance enforcement
+
+### Agent Pipeline Endpoints  
+- `POST /agents/pipeline/execute` - Execute complete five-agent pipeline
+- `POST /agents/ideator` - Run Ideator agent individually
+- `POST /agents/drafter` - Run Drafter agent individually
+- `POST /agents/critic` - Run Critic agent individually
+- `POST /agents/revisor` - Run Revisor agent individually
+- `POST /agents/summarizer` - Run Summarizer agent individually
+- `GET /agents/corpus/query` - Query multi-corpus data with access control
+
+### Health & Monitoring
+- `GET /health` - Comprehensive system health check
+- `GET /health/live` - Kubernetes liveness probe
+- `GET /health/ready` - Kubernetes readiness probe
+- `GET /monitoring/metrics` - System performance metrics
+- `GET /monitoring/violations` - Governance violation tracking
+
+All endpoints include:
+- **JWT Authentication** with Redis session management
+- **Request validation** using Pydantic models
+- **Governance enforcement** at the API layer
+- **Comprehensive logging** for audit trails
+- **Error handling** with proper HTTP status codes
+
+---
+
 ## 🌱 Future Work
 
 * **Containerization**: Dockerfile + docker-compose for reproducible environments.
 * **CI/CD**: GitHub Actions for linting, tests, and builds.
-* **Monitoring**: Structured logs exported to Grafana/Prometheus.
+* **Web Interface**: React/Vue frontend for the FastAPI backend.
+* **Real-time Features**: WebSocket support for live agent pipeline monitoring.
 * **Corpus Expansion**: Add connectors for external APIs and additional data sources.
 * **MVLM Variants**: Experiment with specialized Minimum Viable Language Models for different tones/domains.
 * **Interactive Interfaces**: Real-time voice integration (Twilio + OpenAI Realtime API).
 * **Deployment Targets**: Initial cloud deployment via DigitalOcean / Fly.io, with Kubernetes as a scaling option.
+* **Performance**: Caching layer, connection pooling, and horizontal scaling.
 
 ---
 
