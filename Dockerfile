@@ -21,3 +21,6 @@ COPY . /app
 # Default to an interactive shell unless overridden
 CMD ["bash","-lc","sleep infinity"]
 
+RUN useradd -U -u 1000 appuser && \
+    chown -R 1000:1000 /app
+USER 1000
