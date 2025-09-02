@@ -58,6 +58,8 @@ def import_conversations_json(path: str, source_label: str = "openai_chatgpt") -
     if not os.path.exists(path):
         raise FileNotFoundError(path)
 
+    if "../" in path or "..\\" in path:
+        raise Exception("Invalid file path")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
