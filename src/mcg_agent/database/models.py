@@ -486,6 +486,325 @@ class UserSession(Base, TimestampMixin):
 
 
 # =============================================================================
+# SECURITY AND AUDIT LOGGING MODELS
+# =============================================================================
+
+class SecurityEvent(Base, TimestampMixin):
+    """
+    Security event logging for comprehensive audit trail.
+    
+    Captures all security-relevant events including authentication,
+    authorization, governance violations, and system events.
+    """
+    __tablename__ = 'security_events'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Event classification
+    event_type = Column(String(50), nullable=False)  # authentication, authorization, governance, system
+    event_subtype = Column(String(100), nullable=False)  # login, violation, api_call, etc.
+    severity = Column(String(20), nullable=False, default='info')  # critical, high, medium, low, info
+    
+    # Context information
+    user_id = Column(UUID(as_uuid=True), nullable=True)  # May be null for system events
+    task_id = Column(UUID(as_uuid=True), nullable=True)  # May be null for non-task events
+    agent_name = Column(String(20), nullable=True)  # ideator, drafter, critic, revisor, summarizer
+    session_id = Column(String(255), nullable=True)
+    
+    # Network information
+    ip_address = Column(String(45), nullable=True)  # IPv6 support
+    user_agent = Column(String(500), nullable=True)
+    
+    # Event details
+    success = Column(Boolean, nullable=False)
+    failure_reason = Column(Text, nullable=True)
+    details = Column(JSON, nullable=True)  # Additional event-specific data
+    
+    # Response and impact
+    response_actions = Column(ARRAY(String), nullable=True)  # Actions taken in response
+    containment_applied = Column(Boolean, nullable=False, default=False)
+    
+    # Indexes for security monitoring
+    __table_args__ = (
+        Index('ix_security_events_event_type', 'event_type'),
+        Index('ix_security_events_severity', 'severity'),
+        Index('ix_security_events_created_at', 'created_at'),
+        Index('ix_security_events_user_id', 'user_id'),
+        Index('ix_security_events_task_id', 'task_id'),
+        Index('ix_security_events_agent_name', 'agent_name'),
+        Index('ix_security_events_ip_address', 'ip_address'),
+        Index('ix_security_events_success', 'success'),
+        CheckConstraint("event_type IN ('authentication', 'authorization', 'governance', 'system', 'tool_execution')", name='valid_event_type'),
+        CheckConstraint("severity IN ('critical', 'high', 'medium', 'low', 'info')", name='valid_severity'),
+    )
+
+
+class GovernanceViolationLog(Base, TimestampMixin):
+    """
+    Detailed governance violation tracking.
+    
+    Maintains comprehensive records of all governance rule violations
+    for security analysis and compliance reporting.
+    """
+    __tablename__ = 'governance_violation_logs'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Violation identification
+    violation_id = Column(UUID(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    violation_type = Column(String(100), nullable=False)  # api_limit_exceeded, unauthorized_access, etc.
+    severity = Column(String(20), nullable=False)
+    
+    # Context
+    task_id = Column(UUID(as_uuid=True), nullable=False)
+    agent_role = Column(String(20), nullable=False)
+    user_id = Column(UUID(as_uuid=True), nullable=True)
+    
+    # Violation details
+    rule_violated = Column(String(200), nullable=False)  # Specific rule from governance protocol
+    attempted_action = Column(Text, nullable=False)  # What the agent tried to do
+    current_state = Column(JSON, nullable=False)  # Agent state when violation occurred
+    violation_context = Column(JSON, nullable=False)  # Tool call, parameters, etc.
+    
+    # Enforcement actions
+    enforcement_action = Column(String(50), nullable=False)  # blocked, terminated, logged
+    containment_actions = Column(ARRAY(String), nullable=True)
+    
+    # Investigation and resolution
+    investigation_status = Column(String(20), nullable=False, default='pending')  # pending, reviewed, resolved
+    resolution_notes = Column(Text, nullable=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_by = Column(String(100), nullable=True)
+    
+    # Indexes for compliance reporting
+    __table_args__ = (
+        Index('ix_governance_violations_violation_type', 'violation_type'),
+        Index('ix_governance_violations_severity', 'severity'),
+        Index('ix_governance_violations_task_id', 'task_id'),
+        Index('ix_governance_violations_agent_role', 'agent_role'),
+        Index('ix_governance_violations_created_at', 'created_at'),
+        Index('ix_governance_violations_investigation_status', 'investigation_status'),
+        CheckConstraint("agent_role IN ('ideator', 'drafter', 'critic', 'revisor', 'summarizer')", name='valid_agent_role'),
+        CheckConstraint("severity IN ('critical', 'high', 'medium', 'low')", name='valid_severity'),
+        CheckConstraint("enforcement_action IN ('blocked', 'terminated', 'logged', 'quarantined')", name='valid_enforcement'),
+        CheckConstraint("investigation_status IN ('pending', 'reviewing', 'reviewed', 'resolved', 'dismissed')", name='valid_status'),
+    )
+
+
+class APICallLog(Base, TimestampMixin):
+    """
+    API call tracking for governance and performance monitoring.
+    
+    Tracks all API calls made by agents for limit enforcement
+    and usage analysis.
+    """
+    __tablename__ = 'api_call_logs'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Call identification
+    call_id = Column(UUID(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    task_id = Column(UUID(as_uuid=True), nullable=False)
+    agent_role = Column(String(20), nullable=False)
+    
+    # API details
+    endpoint = Column(String(200), nullable=False)  # Which API endpoint was called
+    method = Column(String(10), nullable=False)  # GET, POST, etc.
+    request_data = Column(JSON, nullable=True)  # Request parameters (sanitized)
+    response_status = Column(Integer, nullable=False)
+    
+    # Performance metrics
+    latency_ms = Column(Integer, nullable=True)
+    tokens_used = Column(Integer, nullable=True)  # For LLM API calls
+    cost_estimate = Column(Integer, nullable=True)  # Cost in cents
+    
+    # Governance tracking
+    call_sequence = Column(Integer, nullable=False)  # 1st, 2nd call etc. for this agent/task
+    governance_approved = Column(Boolean, nullable=False, default=True)
+    
+    # Error tracking
+    error_message = Column(Text, nullable=True)
+    retry_count = Column(Integer, nullable=False, default=0)
+    
+    # Indexes for performance monitoring
+    __table_args__ = (
+        Index('ix_api_call_logs_task_id', 'task_id'),
+        Index('ix_api_call_logs_agent_role', 'agent_role'),
+        Index('ix_api_call_logs_created_at', 'created_at'),
+        Index('ix_api_call_logs_endpoint', 'endpoint'),
+        Index('ix_api_call_logs_response_status', 'response_status'),
+        Index('ix_api_call_logs_call_sequence', 'call_sequence'),
+        CheckConstraint("agent_role IN ('ideator', 'drafter', 'critic', 'revisor', 'summarizer')", name='valid_agent_role'),
+        CheckConstraint("method IN ('GET', 'POST', 'PUT', 'PATCH', 'DELETE')", name='valid_method'),
+        CheckConstraint("response_status >= 100 AND response_status < 600", name='valid_status'),
+    )
+
+
+class CorpusAccessLog(Base, TimestampMixin):
+    """
+    Corpus access tracking for governance and audit.
+    
+    Monitors all corpus queries for permission validation
+    and usage analytics.
+    """
+    __tablename__ = 'corpus_access_logs'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Access identification
+    access_id = Column(UUID(as_uuid=True), nullable=False, unique=True, default=uuid.uuid4)
+    task_id = Column(UUID(as_uuid=True), nullable=False)
+    agent_role = Column(String(20), nullable=False)
+    
+    # Corpus details
+    corpus_type = Column(String(20), nullable=False)  # personal, social, published
+    query_text = Column(Text, nullable=False)
+    query_parameters = Column(JSON, nullable=True)
+    
+    # Results
+    results_count = Column(Integer, nullable=False, default=0)
+    results_returned = Column(Integer, nullable=False, default=0)  # May be limited
+    
+    # Performance
+    query_time_ms = Column(Integer, nullable=True)
+    
+    # Governance
+    access_granted = Column(Boolean, nullable=False)
+    denial_reason = Column(String(200), nullable=True)
+    rate_limit_applied = Column(Boolean, nullable=False, default=False)
+    
+    # Attribution tracking
+    attribution_records_created = Column(Integer, nullable=False, default=0)
+    
+    # Indexes for governance monitoring
+    __table_args__ = (
+        Index('ix_corpus_access_logs_task_id', 'task_id'),
+        Index('ix_corpus_access_logs_agent_role', 'agent_role'),
+        Index('ix_corpus_access_logs_corpus_type', 'corpus_type'),
+        Index('ix_corpus_access_logs_created_at', 'created_at'),
+        Index('ix_corpus_access_logs_access_granted', 'access_granted'),
+        CheckConstraint("agent_role IN ('ideator', 'drafter', 'critic', 'revisor', 'summarizer')", name='valid_agent_role'),
+        CheckConstraint("corpus_type IN ('personal', 'social', 'published')", name='valid_corpus_type'),
+    )
+
+
+class IncidentLog(Base, TimestampMixin):
+    """
+    Security incident tracking and management.
+    
+    Manages security incidents from detection through resolution
+    following incident response procedures.
+    """
+    __tablename__ = 'incident_logs'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Incident identification
+    incident_id = Column(String(50), nullable=False, unique=True)  # Human-readable ID (INC-2024-001)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    
+    # Classification
+    incident_type = Column(String(50), nullable=False)  # governance_violation, security_breach, etc.
+    severity = Column(String(20), nullable=False)  # P0, P1, P2, P3
+    priority = Column(String(20), nullable=False, default='medium')  # critical, high, medium, low
+    
+    # Context
+    affected_systems = Column(ARRAY(String), nullable=True)
+    affected_users = Column(ARRAY(String), nullable=True)
+    related_tasks = Column(ARRAY(String), nullable=True)  # Task IDs
+    
+    # Response
+    status = Column(String(20), nullable=False, default='open')  # open, investigating, resolved, closed
+    assigned_to = Column(String(100), nullable=True)
+    response_team = Column(ARRAY(String), nullable=True)
+    
+    # Timeline
+    detected_at = Column(DateTime(timezone=True), nullable=False)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Response metrics
+    time_to_acknowledge_minutes = Column(Integer, nullable=True)
+    time_to_resolve_minutes = Column(Integer, nullable=True)
+    
+    # Impact assessment
+    impact_description = Column(Text, nullable=True)
+    data_affected = Column(Boolean, nullable=False, default=False)
+    service_disrupted = Column(Boolean, nullable=False, default=False)
+    
+    # Resolution
+    root_cause = Column(Text, nullable=True)
+    remediation_actions = Column(JSON, nullable=True)  # List of actions taken
+    preventive_measures = Column(JSON, nullable=True)  # Future prevention steps
+    
+    # Post-incident
+    lessons_learned = Column(Text, nullable=True)
+    follow_up_required = Column(Boolean, nullable=False, default=False)
+    
+    # Indexes for incident management
+    __table_args__ = (
+        Index('ix_incident_logs_incident_id', 'incident_id'),
+        Index('ix_incident_logs_severity', 'severity'),
+        Index('ix_incident_logs_status', 'status'),
+        Index('ix_incident_logs_detected_at', 'detected_at'),
+        Index('ix_incident_logs_incident_type', 'incident_type'),
+        Index('ix_incident_logs_assigned_to', 'assigned_to'),
+        CheckConstraint("severity IN ('P0', 'P1', 'P2', 'P3')", name='valid_severity'),
+        CheckConstraint("priority IN ('critical', 'high', 'medium', 'low')", name='valid_priority'),
+        CheckConstraint("status IN ('open', 'investigating', 'contained', 'resolved', 'closed')", name='valid_status'),
+    )
+
+
+class ComplianceReport(Base, TimestampMixin):
+    """
+    Compliance reporting and validation tracking.
+    
+    Maintains records of compliance checks and validation
+    results for audit and regulatory requirements.
+    """
+    __tablename__ = 'compliance_reports'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Report identification
+    report_id = Column(String(50), nullable=False, unique=True)  # COMP-2024-001
+    report_type = Column(String(50), nullable=False)  # governance, security, privacy, etc.
+    period_start = Column(DateTime(timezone=True), nullable=False)
+    period_end = Column(DateTime(timezone=True), nullable=False)
+    
+    # Generation metadata
+    generated_by = Column(String(100), nullable=False)  # User or system
+    generation_method = Column(String(20), nullable=False)  # automatic, manual
+    
+    # Report content
+    summary = Column(Text, nullable=False)
+    findings = Column(JSON, nullable=False)  # Detailed findings
+    metrics = Column(JSON, nullable=False)  # Compliance metrics
+    
+    # Validation
+    validation_status = Column(String(20), nullable=False, default='pending')  # pending, validated, rejected
+    validated_by = Column(String(100), nullable=True)
+    validated_at = Column(DateTime(timezone=True), nullable=True)
+    validation_notes = Column(Text, nullable=True)
+    
+    # Follow-up actions
+    action_items = Column(JSON, nullable=True)  # Required actions
+    next_review_date = Column(DateTime(timezone=True), nullable=True)
+    
+    # Indexes for compliance tracking
+    __table_args__ = (
+        Index('ix_compliance_reports_report_type', 'report_type'),
+        Index('ix_compliance_reports_period_start', 'period_start'),
+        Index('ix_compliance_reports_validation_status', 'validation_status'),
+        Index('ix_compliance_reports_generated_by', 'generated_by'),
+        CheckConstraint("generation_method IN ('automatic', 'manual')", name='valid_generation_method'),
+        CheckConstraint("validation_status IN ('pending', 'validated', 'rejected', 'expired')", name='valid_validation_status'),
+    )
+
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
@@ -529,4 +848,174 @@ def create_search_vector_trigger():
     CREATE TRIGGER update_published_content_search_vector
         BEFORE INSERT OR UPDATE ON published_content
         FOR EACH ROW EXECUTE FUNCTION update_search_vector();
+    """
+
+
+def create_security_audit_functions():
+    """
+    SQL functions for automated security audit and compliance tracking.
+    These functions support incident response and compliance reporting.
+    """
+    return """
+    -- Function to automatically calculate incident response times
+    CREATE OR REPLACE FUNCTION update_incident_response_times() RETURNS TRIGGER AS $$
+    BEGIN
+        -- Calculate time to acknowledge
+        IF NEW.acknowledged_at IS NOT NULL AND OLD.acknowledged_at IS NULL THEN
+            NEW.time_to_acknowledge_minutes := EXTRACT(EPOCH FROM (NEW.acknowledged_at - NEW.detected_at)) / 60;
+        END IF;
+        
+        -- Calculate time to resolve
+        IF NEW.resolved_at IS NOT NULL AND OLD.resolved_at IS NULL THEN
+            NEW.time_to_resolve_minutes := EXTRACT(EPOCH FROM (NEW.resolved_at - NEW.detected_at)) / 60;
+        END IF;
+        
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    
+    -- Trigger for incident response time calculation
+    CREATE TRIGGER update_incident_response_times_trigger
+        BEFORE UPDATE ON incident_logs
+        FOR EACH ROW EXECUTE FUNCTION update_incident_response_times();
+    
+    -- Function to generate incident IDs
+    CREATE OR REPLACE FUNCTION generate_incident_id() RETURNS TRIGGER AS $$
+    DECLARE
+        year_suffix TEXT;
+        sequence_num INTEGER;
+    BEGIN
+        -- Get current year suffix
+        year_suffix := EXTRACT(YEAR FROM NOW())::TEXT;
+        
+        -- Get next sequence number for this year
+        SELECT COALESCE(MAX(CAST(SUBSTRING(incident_id FROM 'INC-' || year_suffix || '-(.*)') AS INTEGER)), 0) + 1
+        INTO sequence_num
+        FROM incident_logs
+        WHERE incident_id LIKE 'INC-' || year_suffix || '-%';
+        
+        -- Generate incident ID
+        NEW.incident_id := 'INC-' || year_suffix || '-' || LPAD(sequence_num::TEXT, 3, '0');
+        
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    
+    -- Trigger for incident ID generation
+    CREATE TRIGGER generate_incident_id_trigger
+        BEFORE INSERT ON incident_logs
+        FOR EACH ROW EXECUTE FUNCTION generate_incident_id();
+    
+    -- Function to auto-generate compliance report IDs
+    CREATE OR REPLACE FUNCTION generate_compliance_report_id() RETURNS TRIGGER AS $$
+    DECLARE
+        year_suffix TEXT;
+        sequence_num INTEGER;
+        type_prefix TEXT;
+    BEGIN
+        -- Get current year suffix
+        year_suffix := EXTRACT(YEAR FROM NOW())::TEXT;
+        
+        -- Create type prefix
+        type_prefix := UPPER(LEFT(NEW.report_type, 3));
+        
+        -- Get next sequence number
+        SELECT COALESCE(MAX(CAST(SUBSTRING(report_id FROM type_prefix || '-' || year_suffix || '-(.*)') AS INTEGER)), 0) + 1
+        INTO sequence_num
+        FROM compliance_reports
+        WHERE report_id LIKE type_prefix || '-' || year_suffix || '-%';
+        
+        -- Generate report ID
+        NEW.report_id := type_prefix || '-' || year_suffix || '-' || LPAD(sequence_num::TEXT, 3, '0');
+        
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    
+    -- Trigger for compliance report ID generation
+    CREATE TRIGGER generate_compliance_report_id_trigger
+        BEFORE INSERT ON compliance_reports
+        FOR EACH ROW EXECUTE FUNCTION generate_compliance_report_id();
+    """
+
+
+def create_governance_monitoring_views():
+    """
+    SQL views for governance and security monitoring dashboards.
+    These views support real-time monitoring and compliance reporting.
+    """
+    return """
+    -- View for governance violation monitoring
+    CREATE OR REPLACE VIEW governance_violation_summary AS
+    SELECT 
+        DATE(created_at) as violation_date,
+        agent_role,
+        violation_type,
+        severity,
+        COUNT(*) as violation_count,
+        COUNT(CASE WHEN investigation_status = 'resolved' THEN 1 END) as resolved_count,
+        AVG(CASE WHEN resolved_at IS NOT NULL 
+            THEN EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600 
+            END) as avg_resolution_hours
+    FROM governance_violation_logs
+    WHERE created_at >= NOW() - INTERVAL '30 days'
+    GROUP BY DATE(created_at), agent_role, violation_type, severity
+    ORDER BY violation_date DESC, violation_count DESC;
+    
+    -- View for API call monitoring
+    CREATE OR REPLACE VIEW api_call_monitoring AS
+    SELECT 
+        DATE(created_at) as call_date,
+        agent_role,
+        endpoint,
+        COUNT(*) as call_count,
+        AVG(latency_ms) as avg_latency_ms,
+        COUNT(CASE WHEN response_status >= 400 THEN 1 END) as error_count,
+        SUM(COALESCE(tokens_used, 0)) as total_tokens,
+        SUM(COALESCE(cost_estimate, 0)) as total_cost_cents
+    FROM api_call_logs
+    WHERE created_at >= NOW() - INTERVAL '7 days'
+    GROUP BY DATE(created_at), agent_role, endpoint
+    ORDER BY call_date DESC, call_count DESC;
+    
+    -- View for security event monitoring
+    CREATE OR REPLACE VIEW security_event_dashboard AS
+    SELECT 
+        DATE(created_at) as event_date,
+        event_type,
+        event_subtype,
+        severity,
+        COUNT(*) as event_count,
+        COUNT(CASE WHEN success = true THEN 1 END) as success_count,
+        COUNT(CASE WHEN success = false THEN 1 END) as failure_count,
+        COUNT(DISTINCT user_id) as unique_users_affected,
+        COUNT(DISTINCT ip_address) as unique_ips
+    FROM security_events
+    WHERE created_at >= NOW() - INTERVAL '24 hours'
+    GROUP BY DATE(created_at), event_type, event_subtype, severity
+    ORDER BY event_date DESC, event_count DESC;
+    
+    -- View for compliance metrics
+    CREATE OR REPLACE VIEW compliance_metrics AS
+    SELECT 
+        'governance_violations' as metric_type,
+        COUNT(*) as total_count,
+        COUNT(CASE WHEN severity = 'critical' THEN 1 END) as critical_count,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as last_24h_count
+    FROM governance_violation_logs
+    UNION ALL
+    SELECT 
+        'security_incidents' as metric_type,
+        COUNT(*) as total_count,
+        COUNT(CASE WHEN severity = 'P0' THEN 1 END) as critical_count,
+        COUNT(CASE WHEN detected_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as last_24h_count
+    FROM incident_logs
+    UNION ALL
+    SELECT 
+        'failed_logins' as metric_type,
+        COUNT(*) as total_count,
+        COUNT(CASE WHEN details->>'failure_reason' LIKE '%password%' THEN 1 END) as critical_count,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '24 hours' THEN 1 END) as last_24h_count
+    FROM security_events
+    WHERE event_type = 'authentication' AND success = false;
     """
