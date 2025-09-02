@@ -83,6 +83,55 @@ class PipelineRequest(BaseModel):
         }
 
 
+class IdeatorRequest(BaseModel):
+    """Request model for individual Ideator agent."""
+    
+    content: str = Field(..., min_length=1, max_length=5000, description="Input content to process")
+    context_sources: List[str] = Field(default=["personal", "social"], description="Context sources to use")
+    mode: str = Field(default="outline", description="Ideation mode")
+    target_audience: Optional[str] = Field(None, max_length=200, description="Target audience")
+    content_type: Optional[str] = Field(None, max_length=100, description="Type of content to create")
+    tone_preference: Optional[str] = Field(None, description="Preferred tone")
+    context_depth: int = Field(default=3, ge=1, le=10, description="Depth of context research")
+    
+    @validator('mode')
+    def validate_mode(cls, v):
+        valid_modes = ["outline", "brainstorm", "research", "creative"]
+        if v not in valid_modes:
+            raise ValueError(f"Invalid mode. Must be one of: {valid_modes}")
+        return v
+    
+    @validator('context_sources')
+    def validate_context_sources(cls, v):
+        valid_sources = ["personal", "social", "published"]
+        for source in v:
+            if source not in valid_sources:
+                raise ValueError(f"Invalid context source: {source}")
+        return v
+    
+    @validator('tone_preference')
+    def validate_tone_preference(cls, v):
+        if v is None:
+            return v
+        valid_tones = ["professional", "casual", "technical", "persuasive", "educational", "conversational"]
+        if v not in valid_tones:
+            raise ValueError(f"Invalid tone preference. Must be one of: {valid_tones}")
+        return v
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "content": "Create a comprehensive guide about renewable energy for homeowners",
+                "context_sources": ["personal", "social"],
+                "mode": "outline",
+                "target_audience": "environmentally conscious homeowners",
+                "content_type": "guide",
+                "tone_preference": "educational",
+                "context_depth": 3
+            }
+        }
+
+
 class AgentResult(BaseModel):
     """Individual agent result model."""
     
@@ -417,6 +466,108 @@ async def get_task_status(
 # Corpus query endpoints
 
 @router.post(
+    "/ideator",
+    response_model=AgentResult,
+    summary="Execute Ideator Agent",
+    description="Execute individual Ideator agent with governance enforcement"
+)
+async def execute_ideator(
+    request: IdeatorRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> AgentResult:
+    """
+    Execute Ideator agent individually.
+    
+    **Governance Rules:**
+    - Maximum 2 API calls allowed
+    - May query all corpus types (Personal, Social, Published)  
+    - RAG access only for coverage gap filling
+    - Must preserve attribution for all sources
+    - Must generate structured outline with metadata
+    """
+    
+    task_id = str(uuid4())
+    start_time = datetime.now(timezone.utc)
+    
+    try:
+        # Initialize and execute Ideator agent
+        from ...agents.ideator_agent import IdeatorAgent, IdeatorInput
+        
+        ideator_agent = IdeatorAgent()
+        
+        # Initialize agent
+        await ideator_agent.initialize(
+            task_id=task_id,
+            user_id=current_user["user_id"]
+        )
+        
+        # Prepare agent input
+        agent_input = IdeatorInput(
+            content=request.content,
+            context_sources=request.context_sources,
+            mode=request.mode,
+            target_audience=request.target_audience,
+            content_type=request.content_type,
+            tone_preference=request.tone_preference,
+            context_depth=request.context_depth
+        )
+        
+        # Execute agent
+        result = await ideator_agent.execute(agent_input)
+        
+        # Log successful execution
+        await SecurityLogger.log_governance_event(
+            event_type="agent_execution_completed",
+            task_id=task_id,
+            user_id=current_user["user_id"],
+            success=result.success,
+            details={
+                "agent": "ideator",
+                "content_length": len(result.content or ""),
+                "execution_time_ms": result.performance_metrics.get("execution_time_ms", 0) if result.performance_metrics else 0
+            }
+        )
+        
+        # Convert to API response format
+        return AgentResult(
+            agent_role="ideator",
+            content=result.content,
+            metadata=result.metadata,
+            execution_time_ms=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
+            api_calls_used=result.performance_metrics.get("api_calls", 0) if result.performance_metrics else 0,
+            governance_status="compliant" if result.success else ("failed" if result.error_info else "warning")
+        )
+        
+    except GovernanceViolationError as e:
+        await SecurityLogger.log_governance_event(
+            event_type="agent_execution_failed",
+            task_id=task_id,
+            user_id=current_user["user_id"],
+            success=False,
+            details={"agent": "ideator", "violation_type": "governance", "error": str(e)}
+        )
+        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Governance violation: {str(e)}"
+        )
+        
+    except Exception as e:
+        await SecurityLogger.log_governance_event(
+            event_type="agent_execution_failed",
+            task_id=task_id,
+            user_id=current_user["user_id"],
+            success=False,
+            details={"agent": "ideator", "error": str(e)}
+        )
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ideator execution failed: {str(e)}"
+        )
+
+
+@router.post(
     "/corpus/query",
     response_model=CorpusQueryResult,
     summary="Query Corpus",
@@ -538,21 +689,45 @@ async def _execute_ideator_stage(
             output_mode="chat"
         )
         
-        # Placeholder for actual Ideator agent execution
-        # This would integrate with PydanticAI agent implementation
+        # Initialize and execute real Ideator agent
+        from ...agents.ideator_agent import IdeatorAgent, IdeatorInput, IdeatorMode
         
-        # Simulate Ideator processing
-        outline_content = f"Generated outline for: {prompt[:100]}..."
+        ideator_agent = IdeatorAgent()
         
+        # Initialize agent with governance context
+        await ideator_agent.initialize(
+            task_id=task_id,
+            user_id=current_user["user_id"],
+            governance_context=agent_context
+        )
+        
+        # Prepare agent input
+        agent_input = IdeatorInput(
+            content=prompt,
+            context_sources=context_sources,
+            mode=IdeatorMode.OUTLINE,
+            target_audience="general",
+            content_type="content",
+            context_depth=min(3, len(context_sources) + 1)
+        )
+        
+        # Execute agent
+        agent_result = await ideator_agent.execute(agent_input)
+        
+        # Convert to API result format
         execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
         
         return AgentResult(
             agent_role="ideator",
-            content=outline_content,
-            metadata={"outline_points": 5, "context_sources": context_sources},
+            content=agent_result.content or "No content generated",
+            metadata={
+                **agent_result.metadata,
+                "context_sources": context_sources,
+                "success": agent_result.success
+            },
             execution_time_ms=execution_time,
-            api_calls_used=1,  # Would be tracked by governance decorators
-            governance_status="compliant"
+            api_calls_used=agent_result.performance_metrics.get("api_calls", 0) if agent_result.performance_metrics else 0,
+            governance_status="compliant" if agent_result.success else "failed"
         )
         
     except Exception as e:
