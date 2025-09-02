@@ -20,6 +20,42 @@ This design produces **accurate, auditable, and voice-aligned outputs** that can
 
 ---
 
+## 🚀 Quick Start
+
+For a complete guide, see setup.md. Below is the fastest local path using Python and SQLite.
+
+- Create venv and install
+
+```
+python -m venv .venv
+source .venv/bin/activate
+pip install -r src/requirements.txt
+```
+
+- Set DB and migrate
+
+```
+export DATABASE_URL="sqlite:///./db.sqlite3"
+python -m mcg_agent.ingest.seed --upgrade-db
+```
+
+- Import your ChatGPT export (already in `db/chat data/conversations.json`)
+
+```
+python -m mcg_agent.ingest.seed \
+  --personal-path "db/chat data/conversations.json" \
+  --source openai_chatgpt
+```
+
+- Run tests and a smoke check
+
+```
+PYTHONPATH=src pytest -q
+python -m mcg_agent.cli.smoke "Quick pipeline smoke test."
+```
+
+---
+
 ## ✨ Features
 
 * 🔗 **Multi-corpus retrieval** from Personal, Social, and Published data.
@@ -28,6 +64,12 @@ This design produces **accurate, auditable, and voice-aligned outputs** that can
 * 🛡 **MVLM firebreaks** (Revisor + Summarizer) to lock tone and prevent drift.
 * 📊 **Metadata logging**: attribution, long-tail keywords, change logs, and token usage.
 * 🗣 **Persona alignment** for consistent voice across chat, writing, and publishing.
+
+---
+
+## 🧭 Getting Started
+
+- Full setup and command map: see setup.md for environment, migrations, ingestion, testing, and pipeline smoke commands.
 
 ---
 

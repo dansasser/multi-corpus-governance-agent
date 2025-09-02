@@ -1,0 +1,15 @@
+# Example Postgres settings for ~1k client concurrency via PgBouncer
+max_connections = 300
+shared_buffers = 4GB
+work_mem = 16MB
+maintenance_work_mem = 512MB
+effective_cache_size = 12GB
+wal_level = replica
+max_wal_size = 4GB
+checkpoint_timeout = 15min
+random_page_cost = 1.1
+effective_io_concurrency = 200
+max_worker_processes = 16
+max_parallel_workers = 16
+max_parallel_workers_per_gather = 4
+

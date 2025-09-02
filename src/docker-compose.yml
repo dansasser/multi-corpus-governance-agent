@@ -1,6 +1,22 @@
 version: "3.9"
 
 services:
+  app:
+    build: ..
+    container_name: mcg_app
+    restart: unless-stopped
+    environment:
+      # Use Postgres in this compose; set POSTGRES_PASSWORD in your shell
+      DATABASE_URL: postgresql+psycopg2://mcg_user:${POSTGRES_PASSWORD}@postgres:5432/mcg_db
+      # In dev, avoid Redis until TLS is configured
+      MCG_CALL_TRACKER_BACKEND: memory
+      MCG_CACHE_BACKEND: none
+    depends_on:
+      - postgres
+    volumes:
+      - "../db/chat data:/data:ro"
+    command: >
+      bash -lc "alembic upgrade head && sleep infinity"
   postgres:
     image: postgres:16.3-alpine
     container_name: mcg_postgres
@@ -29,8 +45,7 @@ services:
         --appendonly yes
         --maxmemory 256mb
         --maxmemory-policy allkeys-lru
-        --tls-port 6379
-        --port 0
+        --port 6379
     ports:
       - "6379:6379"
     volumes:

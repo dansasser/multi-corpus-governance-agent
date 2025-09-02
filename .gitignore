@@ -60,6 +60,25 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+**/*.sqlite3
+
+# Local databases and exports
+db/**
+!db/.gitkeep
+
+# Virtual environments anywhere in the tree
+**/venv/
+**/.venv/
+src/mcg_agent/venv/
+
+# Protect src/mcg_agent/db from accidental data commits
+# (keep Python modules, ignore data dumps/exports)
+src/mcg_agent/db/**/*.sqlite3
+src/mcg_agent/db/**/*.db
+src/mcg_agent/db/**/*.json
+src/mcg_agent/db/**/*.ndjson
+src/mcg_agent/db/**/data/**
+src/mcg_agent/db/**/exports/**
 
 # Flask stuff:
 instance/
