@@ -1,0 +1,137 @@
+# Multi-Corpus Governance Agent - Production Dependencies
+# Updated for FastAPI integration and complete system
+
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+starlette==0.27.0
+
+# Authentication & Security
+PyJWT==2.8.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+cryptography==41.0.8
+
+# Database & ORM
+SQLAlchemy==2.0.23
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+alembic==1.13.1
+
+# Redis & Session Management
+redis==5.0.1
+hiredis==2.2.3
+
+# Configuration & Environment
+pydantic==2.5.2
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+
+# HTTP & API Client
+httpx==0.25.2
+aiohttp==3.9.1
+
+# Data Processing & Validation
+pandas==2.1.4
+numpy==1.24.4
+pydantic-ai==0.0.13
+
+# Testing Framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+pytest-xdist==3.5.0  # For parallel test execution
+
+# Development Tools
+black==23.12.0
+isort==5.13.2
+flake8==6.1.0
+mypy==1.8.0
+
+# Process Management for Development
+supervisor==4.2.5  # For Python process management
+
+# System Monitoring
+psutil==5.9.6
+
+# Date/Time Processing
+python-dateutil==2.8.2
+
+# JSON/Data Serialization
+orjson==3.9.10
+
+# Logging & Monitoring
+structlog==23.2.0
+colorama==0.4.6
+
+# UUID Generation
+uuid==1.30
+
+# File System & Path Handling
+pathlib2==2.3.7
+
+# Environment Detection
+platform==1.0.8
+
+# Network & IP Handling
+ipaddress==1.0.23
+
+# Multi-threading & Concurrency
+asyncio-throttle==1.0.2
+
+# CLI & Command Line Tools
+click==8.1.7
+typer==0.9.0
+
+# Data Validation & Parsing
+marshmallow==3.20.1
+email-validator==2.1.0
+
+# Security Headers & CORS
+python-multipart==0.0.6
+
+# Production WSGI/ASGI Server
+gunicorn==21.2.0
+
+# Error Handling & Exceptions
+rich==13.7.0
+
+# Time Zone Handling
+pytz==2023.3
+
+# Regular Expressions (enhanced)
+regex==2023.10.3
+
+# Development Dependencies (Optional - Comment out for production)
+# jupyter==1.0.0
+# notebook==7.0.6
+# ipython==8.17.2
+
+# AI/ML Dependencies (for future PydanticAI integration)
+# openai==1.6.1
+# anthropic==0.8.1
+# langchain==0.0.350
+# transformers==4.36.2
+# torch==2.1.2
+# sentence-transformers==2.2.2
+
+# Additional Security Dependencies
+# python-jose[cryptography]==3.3.0
+# itsdangerous==2.1.2
+
+# Performance & Optimization
+# aiocache==0.12.2
+# cachetools==5.3.2
+
+# Documentation Generation
+# sphinx==7.2.6
+# sphinx-rtd-theme==1.3.0
+
+# Health Check Dependencies (basic system monitoring)
+requests==2.31.0
+urllib3==2.1.0
+
+# Production Deployment
+# docker==6.1.3
+# kubernetes==28.1.0
