@@ -42,6 +42,8 @@ def import_posts_json(path: str, platform: Optional[str] = None) -> dict:
     if not os.path.exists(path):
         raise FileNotFoundError(path)
 
+    if "../" in path or "..\\" in path:
+        raise Exception("Invalid file path")
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, list):
