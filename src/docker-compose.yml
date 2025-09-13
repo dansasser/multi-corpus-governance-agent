@@ -15,8 +15,6 @@ services:
       - postgres
     volumes:
       - "../db/chat data:/data:ro"
-    command: >
-      bash -lc "alembic upgrade head && sleep infinity"
   postgres:
     image: postgres:16.3-alpine
     container_name: mcg_postgres

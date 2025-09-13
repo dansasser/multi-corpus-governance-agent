@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mcg-agent
+  labels:
+    app.kubernetes.io/name: mcg-agent
+    app.kubernetes.io/part-of: mcg-agent
+

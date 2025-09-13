@@ -1,6 +1,20 @@
-"""Security package implementing Zero Trust, WAF integration, and audit trail.
-
-Stubs are provided to align with the implementation plan and will be
-extended to enforce runtime security and governance.
 """
+Security Module
+
+Provides enterprise-grade security for personal voice data including:
+- Personal data encryption for all corpora
+- Voice pattern access control  
+- Personal data audit trails
+- Voice governance enforcement
+- Zero Trust architecture
+- WAF integration
+"""
+
+from .personal_data_encryption import PersonalDataEncryption, EncryptedCorpus, EncryptionKey
+
+__all__ = [
+    "PersonalDataEncryption",
+    "EncryptedCorpus", 
+    "EncryptionKey"
+]
 

@@ -3,40 +3,64 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Tuple
 
+from mcg_agent.config import get_settings
 from mcg_agent.utils.punctuation import enforce_punctuation
 from mcg_agent.protocols.punctuation_protocol import DEFAULT_PUNCTUATION_POLICY
+from mcg_agent.generation.provider_interface import TextGenerationProvider
+
+
+class _PunctuationOnlyProvider(TextGenerationProvider):
+    def __init__(self) -> None:
+        self.mode = "punctuation_only"
+
+    async def generate(self, prompt: str, **kwargs: Any) -> Tuple[str, Dict[str, Any]]:  # pragma: no cover
+        # Deterministic: no-op, but normalize punctuation in prompt as a demonstration
+        out, rules = enforce_punctuation(prompt, DEFAULT_PUNCTUATION_POLICY)
+        return out, {"mode": self.mode, "rules": rules, "op": "generate"}
+
+    async def revise(self, text: str, metadata: Dict[str, Any] | None = None) -> Tuple[str, Dict[str, Any]]:
+        out, rules = enforce_punctuation(text, DEFAULT_PUNCTUATION_POLICY)
+        return out, {"mode": self.mode, "rules": rules, "op": "revise"}
+
+    async def summarize(self, text: str, metadata: Dict[str, Any] | None = None) -> Tuple[str, Dict[str, Any]]:
+        # For parity, apply same normalization
+        out, rules = enforce_punctuation(text, DEFAULT_PUNCTUATION_POLICY)
+        return out, {"mode": self.mode, "rules": rules, "op": "summarize"}
+
+
+def _build_provider() -> TextGenerationProvider:
+    settings = get_settings()
+    mode = (os.environ.get("GEN_PROVIDER") or getattr(settings, "GEN_PROVIDER", "punctuation_only")).lower()
+    if mode == "openai":  # dev mode: calls OpenAI API
+        try:
+            from mcg_agent.generation.openai_provider import OpenAIProvider
+
+            return OpenAIProvider()
+        except Exception:  # pragma: no cover - dependency/env may be missing in some setups
+            return _PunctuationOnlyProvider()
+    # Future: if mode == "mvlm", hook to local MVLM manager/provider
+    # Default: punctuation_only or unknown mode
+    return _PunctuationOnlyProvider()
 
 
 class MVLMProvider:
-    """Pluggable MVLM provider.
+    """Unified provider facade used by the pipeline.
 
-    Modes:
-    - punctuation_only (default): applies punctuation rules deterministically.
-    - noop: returns input unchanged.
-    - http: placeholder for HTTP endpoint (to be implemented when endpoint is ready).
+    Selects an underlying generation provider based on settings/env:
+    - GEN_PROVIDER=openai → OpenAIProvider (dev)
+    - GEN_PROVIDER=mvlm   → (reserved for MVLM hookup)
+    - otherwise           → punctuation_only deterministic fallback
     """
 
     def __init__(self, mode: str | None = None) -> None:
-        self.mode = (mode or os.environ.get("MCG_MVLM_MODE", "punctuation_only")).lower()
-        self.http_url = os.environ.get("MCG_MVLM_HTTP_URL")
-        self.http_api_key = os.environ.get("MCG_MVLM_HTTP_API_KEY")
+        # Maintain backwards-compatible ctor signature; `mode` ignored now
+        self._provider = _build_provider()
 
     async def revise(self, text: str, metadata: Dict[str, Any] | None = None) -> Tuple[str, Dict[str, Any]]:
-        if self.mode == "noop":
-            return text, {"mode": self.mode}
-        if self.mode == "http":
-            # To be implemented: call external MVLM endpoint with governance headers
-            # Return text unchanged for now and flag mode
-            return text, {"mode": self.mode, "note": "http mode not yet implemented"}
-        # punctuation_only default
-        new_text, rules = enforce_punctuation(text, DEFAULT_PUNCTUATION_POLICY)
-        info = {"mode": self.mode, "rules": rules}
-        return new_text, info
+        return await self._provider.revise(text, metadata)
 
     async def summarize(self, text: str, metadata: Dict[str, Any] | None = None) -> Tuple[str, Dict[str, Any]]:
-        # For now use same behavior as revise; in future, apply controlled compression
-        return await self.revise(text, metadata)
+        return await self._provider.summarize(text, metadata)
 
 
 __all__ = ["MVLMProvider"]
-

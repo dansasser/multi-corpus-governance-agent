@@ -1,0 +1,47 @@
+# Include package metadata and documentation
+include README.md
+include LICENSE.md
+include CHANGELOG.md
+include pyproject.toml
+include MANIFEST.in
+
+# Include documentation
+recursive-include docs *.md *.rst *.txt *.py
+recursive-include docs *.html *.css *.js
+recursive-include docs *.png *.jpg *.svg
+
+# Include configuration files
+include alembic.ini
+include .env.example
+recursive-include alembic *.py *.mako
+
+# Include scripts
+recursive-include scripts *.sh *.py
+
+# Include test data and fixtures
+recursive-include tests *.py *.json *.yaml *.yml
+recursive-include tests *.txt *.md
+
+# Include database sample data
+recursive-include db *.json *.sql *.txt
+
+# Include static assets if any
+recursive-include src/mcg_agent/static *
+recursive-include src/mcg_agent/templates *
+
+# Exclude development and build artifacts
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude .git*
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude .pytest_cache
+global-exclude .mypy_cache
+global-exclude .coverage
+global-exclude htmlcov
+global-exclude .tox
+global-exclude build
+global-exclude dist
+global-exclude *.egg-info
