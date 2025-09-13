@@ -73,6 +73,57 @@ python -m mcg_agent.cli.smoke "Quick pipeline smoke test."
 
 ---
 
+## API & Usage
+
+### Authentication
+- Protected endpoints: `POST /query`, `GET /pipeline/summary` (Bearer JWT)
+- Mint a dev token: `mcg-agent mint-token --user-id alice --minutes 120`
+- Example:
+  - `curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"prompt":"Hello"}' http://localhost:8000/query`
+
+### API Endpoints
+- `GET /health` → basic health + memory summary
+- `GET /status` → environment validation
+- `POST /query` (auth) → runs governed pipeline; returns `{ task_id, agent_role, content, metadata }`
+- `GET /pipeline/summary` (auth) → in‑memory stage success/fail counts
+- `GET /metrics` (optional) → Prometheus metrics when `METRICS_ENABLED=true`
+
+### Provider Swap (Dev ↔ MVLM)
+- `GEN_PROVIDER=punctuation_only | openai | mvlm`
+- Dev with OpenAI: set `OPENAI_API_KEY` and optional `OPENAI_MODEL` (default `gpt-4o-mini`).
+- Pipeline uses a unified facade; no code changes when switching providers.
+
+### Optimizer & QA
+- Feature flag: `FEATURE_RESPONSE_OPTIMIZER=true`
+- Strategy: `OPTIMIZATION_STRATEGY=speed|quality|balanced|adaptive`
+- Timebox/cache: `OPTIMIZATION_TIMEBOX_MS`, `OPTIMIZATION_ENABLE_CACHE`, `OPTIMIZATION_CACHE_TTL_MS`
+- Memory pressure: optimizer forces `speed` and bypasses cache under pressure
+- QA thresholds: `OPTIMIZATION_QA_MIN_TONE`, `OPTIMIZATION_QA_MIN_STYLE`, `OPTIMIZATION_QA_MIN_OVERALL`, `OPTIMIZATION_QA_ENFORCE`
+
+### Caching & Memory
+- Cache backends: `MCG_CACHE_BACKEND=none|memory|redis`
+- In‑memory cache: TTL, LRU, optional compression (`MCG_CACHE_COMPRESS=true`) + metrics (hits/misses/evictions/items/bytes)
+- `/health` includes memory summary; optimizer responds to pressure.
+
+### Metrics & Observability
+- Enable Prometheus metrics by setting `METRICS_ENABLED=true` in `.env`.
+- Key series:
+  - `mcg_pipeline_requests_total{endpoint,status}`
+  - `mcg_pipeline_latency_seconds{endpoint}`
+  - `mcg_stage_results_total{stage,result}`
+  - `mcg_cache_hits_total{namespace}`, `mcg_cache_misses_total{namespace}`
+  - `mcg_cache_evictions_total{backend}`, `mcg_cache_items{backend}`, `mcg_cache_bytes{backend}`
+  - `mcg_optimizer_requests_total{op,strategy,result}`
+  - `mcg_optimizer_latency_seconds{op,strategy}`
+  - `mcg_optimizer_pressure_activations_total`
+- Correlation: every request gets a `request_id` (also returned). `/query` metadata includes `request_id` and `task_id`.
+
+### Kubernetes (Scaffold)
+- See `docs/ops/k8s/` for base manifests: Namespace, ConfigMap, Secret (example), Deployment (probes/security), Service, Ingress (nginx).
+- Replace image and domain placeholders; consider HPA/PDB and Ingress auth for `/metrics`.
+
+---
+
 ## 🗂 Quick Reference
 
 | **Role**       | **Inputs**                             | **Tools**                              | **Responsibilities**                            | **Outputs**                           |
@@ -267,62 +318,3 @@ Routing + Corpora Pull
 ## 🌟 Contributing
 
 Contributions are welcome! Please open issues and PRs to improve documentation, expand connectors, or refine governance rules.
-## Metrics & Observability
-
-- Enable Prometheus metrics by setting `METRICS_ENABLED=true` in `.env`.
-- The API exposes `GET /metrics` (when enabled) and `GET /health` includes memory summary.
-- Key metric series (labels omitted for brevity):
-  - `mcg_pipeline_requests_total{endpoint,status}`
-  - `mcg_pipeline_latency_seconds{endpoint}`
-  - `mcg_stage_results_total{stage,result}`
-  - `mcg_cache_hits_total{namespace}`, `mcg_cache_misses_total{namespace}`
-  - `mcg_cache_evictions_total{backend}`, `mcg_cache_items{backend}`, `mcg_cache_bytes{backend}`
-  - `mcg_optimizer_requests_total{op,strategy,result}`
-  - `mcg_optimizer_latency_seconds{op,strategy}`
-  - `mcg_optimizer_pressure_activations_total`
-
-- Correlation:
-  - Every request gets a `request_id` (either from `X-Request-ID` or generated) and is returned in the response header.
-  - `/query` response metadata includes `request_id` and `task_id` for client-side correlation.
-
-## Authentication
-
-- Endpoints requiring auth: `POST /query`, `GET /pipeline/summary` (Bearer JWT)
-- Mint a dev token via CLI:
-  - `mcg-agent mint-token --user-id alice --minutes 120`
-- Example request:
-  - `curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"prompt":"Hello"}' http://localhost:8000/query`
-- Response metadata includes `user_id` for attribution.
-
-## API Endpoints
-
-- `GET /health` → basic health + memory summary
-- `GET /status` → environment validation
-- `POST /query` (auth) → runs governed pipeline and returns final content + metadata
-- `GET /pipeline/summary` (auth) → in-memory stage success/fail counts
-- `GET /metrics` (optional) → Prometheus metrics when `METRICS_ENABLED=true`
-
-## Provider Swap (Dev ↔ MVLM)
-
-- `GEN_PROVIDER=punctuation_only | openai | mvlm`
-- Dev with OpenAI: set `OPENAI_API_KEY` and optional `OPENAI_MODEL` (default `gpt-4o-mini`).
-- Pipeline uses the unified facade; no code changes required when switching providers.
-
-## Optimizer & QA
-
-- Feature flag: `FEATURE_RESPONSE_OPTIMIZER=true`
-- Strategy: `OPTIMIZATION_STRATEGY=speed|quality|balanced|adaptive`
-- Timebox & cache: `OPTIMIZATION_TIMEBOX_MS`, `OPTIMIZATION_ENABLE_CACHE`, `OPTIMIZATION_CACHE_TTL_MS`
-- Memory pressure: optimizer forces `speed` and bypasses cache under pressure
-- QA thresholds: `OPTIMIZATION_QA_MIN_TONE`, `OPTIMIZATION_QA_MIN_STYLE`, `OPTIMIZATION_QA_MIN_OVERALL`, `OPTIMIZATION_QA_ENFORCE`
-
-## Caching & Memory
-
-- Cache backends: `MCG_CACHE_BACKEND=none|memory|redis`
-- In-memory cache supports TTL, LRU, optional compression (`MCG_CACHE_COMPRESS=true`), and metrics (hits/misses/evictions/items/bytes)
-- Health endpoint includes memory summary; optimizer responds to pressure.
-
-## Kubernetes
-
-- See `docs/ops/k8s/` for base manifests: Namespace, ConfigMap, Secret (example), Deployment (probes/security), Service, Ingress (nginx).
-- Replace image and domain placeholders; apply secrets with real values; consider HPA/PDB and Ingress auth for `/metrics`.
